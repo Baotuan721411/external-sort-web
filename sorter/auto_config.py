@@ -3,24 +3,23 @@ import math
 import psutil
 
 
-def choose_k(available_mem):
+def choose_k(file_size):
     """
-    chọn k dựa trên RAM server
-    không nên quá lớn vì heap + file handle sẽ chậm
+    chọn k dựa trên kích thước file
     """
 
     MB = 1024 * 1024
 
-    if available_mem < 256 * MB:
+    if file_size < 50 * MB:
+        return 6
+    elif file_size < 200 * MB:
         return 8
-    elif available_mem < 512 * MB:
+    elif file_size < 500 * MB:
+        return 12
+    elif file_size < 2 * 1024 * MB:
         return 16
-    elif available_mem < 2 * 1024 * MB:
-        return 32
-    elif available_mem < 8 * 1024 * MB:
-        return 64
     else:
-        return 96
+        return 24
 
 
 def auto_tune_params(input_file, ram_ratio=0.5):
@@ -39,7 +38,7 @@ def auto_tune_params(input_file, ram_ratio=0.5):
     N = file_size // 8   # số lượng double
 
     # ===== 3. chọn k =====
-    k = choose_k(available_mem)
+    k = choose_k(file_size)
 
     # ===== 4. block_size tối đa do RAM cho phép =====
     max_block = available_mem // (8 * (k + 1))
@@ -57,15 +56,6 @@ def auto_tune_params(input_file, ram_ratio=0.5):
     # ===== 7. ước lượng số pass =====
     runs = max(1, math.ceil(N / block_size))
     passes = math.ceil(math.log(runs, k)) if runs > 1 else 1
-
-    print("------ AUTO CONFIG ------")
-    print(f"File size: {file_size/1024/1024:.2f} MB")
-    print(f"Available RAM: {available_mem/1024/1024:.2f} MB")
-    print(f"k-way merge: {k}")
-    print(f"block_size: {block_size} doubles ({block_size*8/1024/1024:.2f} MB)")
-    print(f"Initial runs: {runs}")
-    print(f"Estimated passes: {passes}")
-    print("-------------------------")
 
     return block_size, k
  
