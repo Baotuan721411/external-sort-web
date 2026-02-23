@@ -1,9 +1,8 @@
 <!DOCTYPE html>
-
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
-<title>External Merge Sort</title>
+<title>External Merge Sort Visualizer</title>
 
 <style>
 body{
@@ -11,24 +10,16 @@ body{
     background: #0f172a;
     color: white;
     text-align: center;
-    padding-top: 80px;
+    padding-top: 50px;
 }
 
 .container{
-    width: 500px;
+    width: 700px;
     margin: auto;
     background: #1e293b;
     padding: 40px;
     border-radius: 12px;
     box-shadow: 0 0 30px rgba(0,0,0,0.4);
-}
-
-h1{
-    margin-bottom: 30px;
-}
-
-input[type="file"]{
-    margin: 20px 0;
 }
 
 button{
@@ -46,97 +37,182 @@ button:hover{
 }
 
 #status{
-    margin-top: 25px;
+    margin-top: 20px;
     font-size: 18px;
 }
 
 #download{
     display:none;
-    margin-top: 30px;
+    margin-top: 25px;
 }
 
-a{
-    color: #38bdf8;
-    font-size: 18px;
+.bar-container{
+    margin-top:40px;
+    height:260px;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    gap:6px;
+}
+
+.bar{
+    width:18px;
+    background:#38bdf8;
+    transition:height 0.5s, background 0.4s;
+    border-radius:4px 4px 0 0;
+}
+
+.bar.sorted{
+    background:#22c55e;
+}
+
+.bar.merge{
+    background:#f59e0b;
+}
+
+#phase{
+    margin-top:20px;
+    font-size:20px;
+    color:#facc15;
 }
 </style>
-
 </head>
 
 <body>
 
 <div class="container">
-    <h1>External Merge Sort</h1>
+<h1>External Merge Sort Visualizer</h1>
 
-```
 <input type="file" id="fileInput">
-<br>
+<br><br>
 <button onclick="uploadFile()">Upload & Sort</button>
 
 <div id="status"></div>
+<div id="phase"></div>
+
+<div class="bar-container" id="bars"></div>
 
 <div id="download">
     <p>File đã sắp xếp xong!</p>
-    <a id="downloadLink" href="#">⬇ Tải file sorted.bin</a>
+    <a id="downloadLink">⬇ Tải file sorted.bin</a>
 </div>
-```
-
 </div>
 
 <script>
 
-let jobId = null;
+let jobId=null;
+let steps=[];
+let stepIndex=0;
+
+/* ================= UPLOAD ================= */
 
 async function uploadFile(){
-    const fileInput = document.getElementById("fileInput");
-    const statusDiv = document.getElementById("status");
-    const downloadDiv = document.getElementById("download");
+    const fileInput=document.getElementById("fileInput");
+    const statusDiv=document.getElementById("status");
 
-    if(fileInput.files.length === 0){
+    if(fileInput.files.length===0){
         alert("Chọn file trước!");
         return;
     }
 
-    downloadDiv.style.display = "none";
-    statusDiv.innerHTML = "Đang upload...";
+    statusDiv.innerHTML="Đang upload...";
 
-    let formData = new FormData();
-    formData.append("file", fileInput.files[0]);
+    let formData=new FormData();
+    formData.append("file",fileInput.files[0]);
 
-    // gửi file lên FastAPI
-    const response = await fetch("/sort", {
-        method: "POST",
-        body: formData
-    });
+    const response=await fetch("/sort",{method:"POST",body:formData});
+    const data=await response.json();
 
-    const data = await response.json();
-    jobId = data.job_id;
+    jobId=data.job_id;
 
-    statusDiv.innerHTML = "Upload xong. Đang sắp xếp...";
-
+    statusDiv.innerHTML="Đang sắp xếp trên server...";
     checkStatus();
 }
 
+/* ================= CHECK STATUS ================= */
+
 async function checkStatus(){
-    const statusDiv = document.getElementById("status");
-    const downloadDiv = document.getElementById("download");
-    const downloadLink = document.getElementById("downloadLink");
+    const statusDiv=document.getElementById("status");
+    const downloadDiv=document.getElementById("download");
+    const downloadLink=document.getElementById("downloadLink");
 
-    const res = await fetch(`/status/${jobId}`);
-    const data = await res.json();
+    const res=await fetch(`/status/${jobId}`);
+    const data=await res.json();
 
-    if(data.status === "processing" || data.status === "queued"){
-        statusDiv.innerHTML = "Server đang sắp xếp file... (có thể mất vài phút)";
-        setTimeout(checkStatus, 3000);
+    if(data.status==="processing"||data.status==="queued"){
+        setTimeout(checkStatus,3000);
     }
-    else if(data.status === "done"){
-        statusDiv.innerHTML = "Hoàn thành!";
-        downloadDiv.style.display = "block";
-        downloadLink.href = `/download/${jobId}`;
+    else if(data.status==="done"){
+        statusDiv.innerHTML="Đang tải dữ liệu mô phỏng...";
+        downloadLink.href=`/download/${jobId}`;
+
+        // LẤY FILE STEPS.JSON
+        const stepsRes=await fetch(`/steps/${jobId}`);
+        const stepsData=await stepsRes.json();
+        steps=stepsData.steps;
+
+        statusDiv.innerHTML="Bắt đầu mô phỏng...";
+        visualize();
+
+        downloadDiv.style.display="block";
     }
     else{
-        statusDiv.innerHTML = "Lỗi: " + data.status;
+        statusDiv.innerHTML="Lỗi: "+data.status;
     }
+}
+
+/* ================= DRAW BARS ================= */
+
+function drawBars(array,color="normal"){
+    const container=document.getElementById("bars");
+    container.innerHTML="";
+
+    let max=Math.max(...array);
+
+    array.forEach(value=>{
+        const bar=document.createElement("div");
+        bar.className="bar";
+
+        if(color==="sorted") bar.classList.add("sorted");
+        if(color==="merge") bar.classList.add("merge");
+
+        bar.style.height=(value/max*240)+"px";
+        container.appendChild(bar);
+    });
+}
+
+/* ================= VISUALIZE ================= */
+
+async function visualize(){
+    const phase=document.getElementById("phase");
+
+    if(stepIndex>=steps.length) return;
+
+    let step=steps[stepIndex];
+
+    if(step.type==="read_block"){
+        phase.innerHTML="📂 Đọc block từ file";
+        drawBars(step.data);
+    }
+
+    if(step.type==="sort_block"){
+        phase.innerHTML="🧠 Sắp xếp trong RAM (Internal Sort)";
+        drawBars(step.data,"sorted");
+    }
+
+    if(step.type==="merge"){
+        phase.innerHTML="🔀 Đang Merge các Run";
+        drawBars(step.result,"merge");
+    }
+
+    if(step.type==="finished"){
+        phase.innerHTML="✅ Hoàn tất External Merge Sort!";
+        drawBars(step.data,"sorted");
+        return;
+    }
+
+    stepIndex++;
+    setTimeout(visualize,1200);
 }
 
 </script>
