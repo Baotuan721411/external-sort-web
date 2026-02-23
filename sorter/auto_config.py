@@ -1,61 +1,60 @@
 import os
 import math
-import psutil
 
 
 def choose_k(file_size):
     """
-    chọn k dựa trên kích thước file
+    k cho visualisation (không phải performance)
     """
 
     MB = 1024 * 1024
 
-    if file_size < 50 * MB:
+    if file_size < 5 * MB:
+        return 4
+    elif file_size < 20 * MB:
+        return 5
+    elif file_size < 100 * MB:
         return 6
-    elif file_size < 200 * MB:
-        return 8
     elif file_size < 500 * MB:
-        return 12
-    elif file_size < 2 * 1024 * MB:
-        return 16
+        return 7
     else:
-        return 24
+        return 8
 
 
-def auto_tune_params(input_file, ram_ratio=0.5):
+def choose_visual_block_size(N, k):
     """
-    Tự động chọn block_size và k dựa vào:
-    - RAM server
-    - kích thước file
+    chọn block_size để:
+    - nhìn rõ buffer
+    - heap thay đổi liên tục
+    - không lag browser
     """
 
-    # ===== 1. RAM khả dụng =====
-    mem = psutil.virtual_memory()
-    available_mem = int(mem.available * ram_ratio)
+    # ta muốn khoảng 10–18 runs để animation đẹp
+    target_runs = 14
 
-    # ===== 2. kích thước file =====
+    block_size = math.ceil(N / target_runs)
+
+    # giới hạn để UI vẽ được
+    MIN_BLOCK = 32
+    MAX_BLOCK = 80
+
+    block_size = max(MIN_BLOCK, min(block_size, MAX_BLOCK))
+
+    return block_size
+
+
+def auto_tune_params(input_file):
+    """
+    Auto config cho visualizer
+    """
+
     file_size = os.path.getsize(input_file)
-    N = file_size // 8   # số lượng double
+    N = file_size // 8  # số lượng double
 
-    # ===== 3. chọn k =====
+    # chọn k
     k = choose_k(file_size)
 
-    # ===== 4. block_size tối đa do RAM cho phép =====
-    max_block = available_mem // (8 * (k + 1))
-
-    # ===== 5. block_size cần để đạt ~2 pass =====
-    target_block = math.ceil(N / (k * k))
-
-    # ===== 6. chọn block_size an toàn =====
-    block_size = min(max_block, target_block)
-
-    # tránh quá nhỏ (I/O rất chậm)
-    MIN_BLOCK = 4096
-    block_size = max(block_size, MIN_BLOCK)
-
-    # ===== 7. ước lượng số pass =====
-    runs = max(1, math.ceil(N / block_size))
-    passes = math.ceil(math.log(runs, k)) if runs > 1 else 1
+    # block_size cho animation
+    block_size = choose_visual_block_size(N, k)
 
     return block_size, k
- 
