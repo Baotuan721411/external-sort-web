@@ -1,108 +1,42 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 import os
-import uuid
-import json
-
+import shutil
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from sorter.external_merge_sort import external_merge_sort
 
-app = FastAPI(title="External Merge Sort Service")
+app = FastAPI()
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_DIR = os.path.join(BASE_DIR, "static")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-INPUT_DIR = os.path.join(BASE_DIR, "storage", "input")
-OUTPUT_DIR = os.path.join(BASE_DIR, "storage", "output")
+UPLOAD_PATH = "input.bin"
+OUTPUT_PATH = "output/sorted.bin"
 
-os.makedirs(INPUT_DIR, exist_ok=True)
-os.makedirs(OUTPUT_DIR, exist_ok=True)
+# upload + sort
+@app.post("/upload")
+async def upload_file(file: UploadFile = File(...)):
 
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    with open(UPLOAD_PATH, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
 
-jobs = {}
-steps_storage = {}
+    steps = external_merge_sort(UPLOAD_PATH, OUTPUT_PATH)
 
-@app.get("/")
-def homepage():
-    index_path = os.path.join(STATIC_DIR, "index.html")
-    # tell browsers not to cache index (helps during development)
-    return FileResponse(index_path, headers={
-        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-        "Pragma": "no-cache"
-    })
+    return JSONResponse(content=steps)
 
-def run_sort(job_id: str, input_path: str, output_path: str):
-    global jobs, steps_storage
-    try:
-        jobs[job_id] = "processing"
-        steps = external_merge_sort(input_path, output_path)
-        steps_storage[job_id] = steps
+# download sorted file
+@app.get("/download")
+def download_file():
+    if not os.path.exists(OUTPUT_PATH):
+        raise HTTPException(status_code=404, detail="File not found")
 
-        steps_file = os.path.join(OUTPUT_DIR, f"steps_{job_id}.json")
-        with open(steps_file, "w", encoding="utf-8") as f:
-            json.dump({"steps": steps}, f, indent=2)
-
-        jobs[job_id] = "done"
-    except Exception as e:
-        jobs[job_id] = f"error: {str(e)}"
-
-@app.post("/sort")
-async def sort_file(background_tasks: BackgroundTasks, file: UploadFile = File(...)):
-    try:
-        job_id = str(uuid.uuid4())
-        input_filename = f"{job_id}_{file.filename}"
-        output_filename = f"sorted_{job_id}.bin"
-        input_path = os.path.join(INPUT_DIR, input_filename)
-        output_path = os.path.join(OUTPUT_DIR, output_filename)
-
-        with open(input_path, "wb") as buffer:
-            while True:
-                chunk = await file.read(1024 * 1024)
-                if not chunk:
-                    break
-                buffer.write(chunk)
-
-        jobs[job_id] = "queued"
-        background_tasks.add_task(run_sort, job_id, input_path, output_path)
-
-        return {
-            "message": "Upload successful",
-            "job_id": job_id,
-            "status_url": f"/status/{job_id}",
-            "steps_url": f"/steps/{job_id}",
-            "download_url": f"/download/{job_id}"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/status/{job_id}")
-def check_status(job_id: str):
-    if job_id not in jobs:
-        raise HTTPException(status_code=404, detail="Job not found")
-    return {"job_id": job_id, "status": jobs[job_id]}
-
-@app.get("/steps/{job_id}")
-def get_steps(job_id: str):
-    if job_id in steps_storage:
-        return JSONResponse(content={"steps": steps_storage[job_id]})
-
-    steps_file = os.path.join(OUTPUT_DIR, f"steps_{job_id}.json")
-    if os.path.exists(steps_file):
-        try:
-            with open(steps_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            steps_storage[job_id] = data["steps"]
-            return JSONResponse(content=data)
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Failed to read steps file: {e}")
-
-    raise HTTPException(status_code=404, detail="Steps not ready")
-
-@app.get("/download/{job_id}")
-def download_file(job_id: str):
-    output_filename = f"sorted_{job_id}.bin"
-    file_path = os.path.join(OUTPUT_DIR, output_filename)
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not ready yet")
-    return FileResponse(path=file_path, filename="sorted.bin", media_type="application/octet-stream")
+    return FileResponse(
+        OUTPUT_PATH,
+        media_type="application/octet-stream",
+        filename="sorted.bin"
+    )
