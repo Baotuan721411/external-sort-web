@@ -1,357 +1,148 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="utf-8" />
-<title>External Merge Sort Visualizer (Enhanced)</title>
-<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta charset="UTF-8">
+<title>External Merge Sort Visualizer</title>
+
 <style>
-:root{--bg:#0f172a;--card:#1e293b;--accent:#22c55e;--muted:#94a3b8;}
-body{font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);color:#fff;margin:0;padding:24px;display:flex;justify-content:center;}
-.container{width:980px;background:var(--card);padding:20px;border-radius:12px;box-shadow:0 10px 30px rgba(2,6,23,0.6);}
-.header{display:flex;align-items:center;gap:16px}
-h1{margin:0;font-size:20px}
-.controls{margin-top:12px;display:flex;gap:12px;align-items:center}
-button{background:var(--accent);border:none;padding:8px 12px;border-radius:8px;color:white;cursor:pointer}
-input[type="number"]{width:90px;padding:6px;border-radius:8px;border:1px solid #334155;background:#0b1220;color:#fff}
-.file-icon{width:64px;height:64px;border-radius:8px;background:#0b1220;display:flex;align-items:center;justify-content:center;border:2px solid #334155}
-.file-info{display:flex;flex-direction:column;gap:4px}
-.visual-area{margin-top:18px;display:grid;grid-template-columns:1fr 320px;gap:14px}
-.left-panel{background:#071025;padding:12px;border-radius:8px;min-height:360px}
-.right-panel{background:#071025;padding:12px;border-radius:8px;min-height:360px}
-.row{display:flex;align-items:center;gap:8px;margin-bottom:10px}
-.k-buffers{display:flex;gap:8px;flex-wrap:wrap}
-.buffer{background:#061424;padding:8px;border-radius:8px;min-width:130px;min-height:120px;color:#fff;border:1px solid #183044}
-.buffer h4{margin:0;font-size:13px;color:var(--muted)}
-.buffer .vals{display:flex;align-items:flex-end;gap:4px;height:72px;margin-top:8px}
-.small-bar{width:10px;border-radius:4px 4px 0 0;background:#38bdf8;transition:height 0.4s}
-.small-bar.sorted{background:var(--accent)}
-.small-bar.heap{background:#f59e0b}
-.heap-area{background:#04202a;padding:8px;border-radius:8px;color:#fff;border:1px dashed #0f3b45;height:150px;overflow:auto}
-.heap-item{display:inline-block;padding:6px 8px;margin:4px;border-radius:6px;background:#07323b}
-.output-buffer{background:#04202a;padding:8px;border-radius:8px;color:#fff;border:1px dashed #0f3b45;min-height:80px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.badge{background:#0b1220;padding:6px 8px;border-radius:8px;border:1px solid #123}
-.status{margin-top:10px;color:var(--muted)}
-.small{font-size:12px;color:var(--muted)}
-.controls .note{font-size:13px;color:var(--muted)}
-.footer{margin-top:12px;text-align:right}
+body{
+    background:#0f172a;
+    color:white;
+    text-align:center;
+    font-family:Arial;
+}
+.bar{
+    width:18px;
+    background:#38bdf8;
+    margin:2px;
+    display:inline-block;
+}
+.buffer{
+    border:2px solid #22c55e;
+    width:90px;
+    height:120px;
+    margin:5px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+}
+.heap-node{
+    background:#f59e0b;
+    padding:6px 10px;
+    border-radius:8px;
+    margin:3px;
+    display:inline-block;
+}
 </style>
 </head>
+
 <body>
-<div class="container">
-  <div class="header">
-    <div style="display:flex;align-items:center;gap:12px">
-      <div class="file-icon" id="fileIcon">📄</div>
-      <div>
-        <h1>External Merge Sort Visualizer (Enhanced)</h1>
-        <div class="small">Upload file binary doubles (.bin) — chọn params trước khi bắt đầu.</div>
-      </div>
-    </div>
-  </div>
 
-  <div class="controls">
-    <input type="file" id="fileInput" />
-    <div class="note small">Sau khi chọn file: hiện icon & chọn k / block size → nhấn "Start Sort"</div>
-    <div style="margin-left:8px;">
-      <label class="small">k</label><br>
-      <input type="number" id="kInput" value="5" min="2" />
-    </div>
-    <div>
-      <label class="small">block_size</label><br>
-      <input type="number" id="blockInput" value="100" min="1" />
-    </div>
-    <button id="uploadBtn">Upload</button>
-    <button id="startBtn" disabled>Start Sort</button>
-    <div id="status" class="status"></div>
-  </div>
+<h1>External Merge Sort Visualizer</h1>
 
-  <div class="visual-area">
-    <div class="left-panel">
-      <div class="row">
-        <div class="badge" id="fileMeta">No file uploaded</div>
-      </div>
+<input type="file" id="fileInput">
+<button onclick="uploadFile()">Upload & Sort</button>
 
-      <h3 style="margin-top:12px;margin-bottom:6px">K Buffers (input runs)</h3>
-      <div id="buffersContainer" class="k-buffers">
-        <!-- dynamic buffer cards (k of them) -->
-      </div>
+<h3 id="config"></h3>
 
-      <h3 style="margin-top:12px;margin-bottom:6px">Heap (current smallest items)</h3>
-      <div class="heap-area" id="heapArea">
-        <!-- heap items -->
-      </div>
-    </div>
+<div id="buffers"></div>
+<div id="heap"></div>
+<div id="bars"></div>
 
-    <div class="right-panel">
-      <h3>Output Buffer (sample)</h3>
-      <div id="outputBuffer" class="output-buffer"></div>
-
-      <h3 style="margin-top:12px">Events</h3>
-      <div id="eventsLog" style="height:160px;overflow:auto;background:#02121a;padding:8px;border-radius:6px;border:1px solid #08323a;color:#9fb7c2"></div>
-    </div>
-  </div>
-
-  <div class="footer">
-    <a id="downloadLink" style="display:none;color:#fff">⬇ Tải file sorted.bin</a>
-  </div>
-</div>
+<br>
+<a id="download" style="display:none">⬇ Download sorted.bin</a>
 
 <script>
-let jobId = null;
-let uploadedFileName = null;
-let inputPath = null;
-let steps = [];
-let stepIndex = 0;
-let kGlobal = 5;
+let jobId=null;
+let steps=[];
+let index=0;
 
-// DOM refs
-const uploadBtn = document.getElementById('uploadBtn');
-const startBtn = document.getElementById('startBtn');
-const fileInput = document.getElementById('fileInput');
-const fileMeta = document.getElementById('fileMeta');
-const fileIcon = document.getElementById('fileIcon');
-const buffersContainer = document.getElementById('buffersContainer');
-const heapArea = document.getElementById('heapArea');
-const outputBuffer = document.getElementById('outputBuffer');
-const eventsLog = document.getElementById('eventsLog');
-const downloadLink = document.getElementById('downloadLink');
+async function uploadFile(){
+    const file=document.getElementById("fileInput").files[0];
+    const fd=new FormData();
+    fd.append("file",file);
 
-uploadBtn.onclick = async () => {
-  if (!fileInput.files.length) { alert('Chọn file trước'); return; }
-  uploadBtn.disabled = true;
-  const f = fileInput.files[0];
-  const fd = new FormData();
-  fd.append('file', f);
+    const res=await fetch("/sort",{method:"POST",body:fd});
+    const data=await res.json();
+    jobId=data.job_id;
 
-  try {
-    const res = await fetch('/upload', { method: 'POST', body: fd });
-    const data = await res.json();
-    jobId = data.job_id;
-    uploadedFileName = f.name;
-    fileMeta.textContent = `Uploaded: ${uploadedFileName} (job ${jobId})`;
-    fileIcon.textContent = '📄';
-    startBtn.disabled = false;
-    logEvent('Upload complete. Choose params then Start Sort.');
-  } catch (e) {
-    logEvent('Upload failed: ' + e);
-  } finally {
-    uploadBtn.disabled = false;
-  }
-};
-
-startBtn.onclick = async () => {
-  if (!jobId) { alert('Upload file trước'); return; }
-  startBtn.disabled = true;
-  const kVal = parseInt(document.getElementById('kInput').value) || 5;
-  const bs = parseInt(document.getElementById('blockInput').value) || 100;
-  kGlobal = kVal;
-
-  // initialise UI buffers (empty)
-  renderKBuckets(kVal);
-
-  logEvent(`Starting sort with k=${kVal}, block_size=${bs} ...`);
-  try {
-    // start sort
-    let form = new FormData();
-    form.append('k', kVal);
-    form.append('block_size', bs);
-    const res = await fetch(`/start/${jobId}`, { method: 'POST', body: form });
-    const data = await res.json();
-    logEvent('Sort started on server.');
-    pollStatus();
-  } catch (e) {
-    logEvent('Start failed: ' + e);
-    startBtn.disabled = false;
-  }
-};
-
-function logEvent(txt){
-  const p = document.createElement('div');
-  p.textContent = `${new Date().toLocaleTimeString()} — ${txt}`;
-  eventsLog.prepend(p);
+    checkStatus();
 }
 
-// poll until done, then fetch steps
-async function pollStatus(){
-  const s = document.getElementById('status');
-  s.textContent = 'Checking status...';
-  try {
-    const res = await fetch(`/status/${jobId}`);
-    const data = await res.json();
-    s.textContent = `Status: ${data.status}`;
-    if (data.status === 'done') {
-      logEvent('Server reports done. Fetching steps...');
-      await fetchAndStartVisual();
-      downloadLink.href = `/download/${jobId}`;
-      downloadLink.style.display = 'inline';
-      downloadLink.textContent = '⬇ Tải file sorted.bin';
-      return;
-    } else if (data.status && data.status.startsWith('error')) {
-      logEvent('Server error: ' + data.status);
-      startBtn.disabled = false;
-      return;
-    } else {
-      setTimeout(pollStatus, 1500);
+async function checkStatus(){
+    const res=await fetch(`/status/${jobId}`);
+    const data=await res.json();
+
+    if(data.status!=="done"){
+        setTimeout(checkStatus,2000);
+        return;
     }
-  } catch (e) {
-    logEvent('Status check failed: ' + e);
-    setTimeout(pollStatus, 2000);
-  }
+
+    const stepsRes=await fetch(`/steps/${jobId}`);
+    const s=await stepsRes.json();
+
+    steps=s.steps;
+    const meta=s.meta;
+
+    document.getElementById("config").innerHTML=
+        `k = ${meta.k} | block_size = ${meta.block_size}`;
+
+    drawBuffers(meta.k);
+
+    document.getElementById("download").href=`/download/${jobId}`;
+    document.getElementById("download").style.display="inline";
+
+    visualize();
 }
 
-async function fetchAndStartVisual(){
-  try {
-    const res = await fetch(`/steps/${jobId}`);
-    const json = await res.json();
-    steps = json.steps || [];
-    stepIndex = 0;
-    logEvent(`Received ${steps.length} visualization steps.`);
-    runVisualizer();
-  } catch (e) {
-    logEvent('Failed to fetch steps: ' + e);
-  }
+function drawBuffers(k){
+    const b=document.getElementById("buffers");
+    b.innerHTML="";
+    for(let i=0;i<k;i++){
+        const div=document.createElement("div");
+        div.className="buffer";
+        div.innerText="Buffer "+(i+1);
+        b.appendChild(div);
+    }
 }
 
-/* ------------------ UI render helpers ------------------ */
-
-function renderKBuckets(k){
-  buffersContainer.innerHTML = '';
-  for (let i=0;i<k;i++){
-    const div = document.createElement('div');
-    div.className = 'buffer';
-    div.id = `buffer_${i}`;
-    div.innerHTML = `<h4>Buffer ${i}</h4><div class="vals" id="vals_${i}"></div>`;
-    buffersContainer.appendChild(div);
-  }
-  // clear heap + output
-  heapArea.innerHTML = '';
-  outputBuffer.innerHTML = '';
+function drawHeap(arr){
+    const h=document.getElementById("heap");
+    h.innerHTML="";
+    arr.slice(0,20).forEach(v=>{
+        const n=document.createElement("div");
+        n.className="heap-node";
+        n.innerText=v.toFixed(2);
+        h.appendChild(n);
+    });
 }
 
-function renderValuesIntoBuffer(idx, arr, highlight=false){
-  const container = document.getElementById(`vals_${idx}`);
-  if (!container) return;
-  container.innerHTML = '';
-  // limit bars to at most 18 items visually
-  const sample = arr.slice(0, 18);
-  const max = Math.max(...sample, 1);
-  sample.forEach(v=>{
-    const b = document.createElement('div');
-    b.className = 'small-bar';
-    if (highlight) b.classList.add('sorted');
-    b.style.height = (v / max * 72) + 'px';
-    container.appendChild(b);
-  });
+function drawBars(arr){
+    const b=document.getElementById("bars");
+    b.innerHTML="";
+    let max=Math.max(...arr);
+    arr.forEach(v=>{
+        const bar=document.createElement("div");
+        bar.className="bar";
+        bar.style.height=(v/max*200)+"px";
+        b.appendChild(bar);
+    });
 }
 
-function renderHeap(heapList){
-  heapArea.innerHTML = '';
-  // heapList: array of {value, src}
-  // show up to 20 items
-  heapList.slice(0, 20).forEach(item=>{
-    const d = document.createElement('div');
-    d.className = 'heap-item';
-    d.textContent = `${item.value.toFixed(2)} (s${item.src})`;
-    heapArea.appendChild(d);
-  });
-}
+function visualize(){
+    if(index>=steps.length) return;
 
-function renderOutputSample(arr){
-  outputBuffer.innerHTML = '';
-  const sample = arr.slice(-30); // show tail sample
-  sample.forEach(v=>{
-    const s = document.createElement('div');
-    s.className = 'heap-item';
-    s.textContent = v.toFixed(2);
-    outputBuffer.appendChild(s);
-  });
-}
+    const step=steps[index];
 
-/* ------------------ Visualizer runner ------------------ */
+    if(step.type==="merge"){
+        drawHeap(step.result);
+        drawBars(step.result);
+    }
 
-function runVisualizer(){
-  if (!steps || stepIndex >= steps.length) {
-    logEvent('Visualization finished.');
-    return;
-  }
-
-  const step = steps[stepIndex];
-
-  // handle each step type
-  switch(step.type){
-    case 'file_info':
-      fileMeta.textContent = `File: ${step.file_name} — runs_count: ${step.runs_count}`;
-      logEvent('File info received');
-      break;
-
-    case 'read_block':
-      // show sample in the next available buffer index (use run_index)
-      const idx = step.run_index;
-      renderValuesIntoBuffer(idx, step.sample, false);
-      logEvent(`Read block #${idx} (${step.count} elements)`);
-      break;
-
-    case 'sort_block':
-      renderValuesIntoBuffer(step.run_index, step.sorted_sample, true);
-      logEvent(`Sorted block #${step.run_index}`);
-      break;
-
-    case 'params_chosen':
-      logEvent(`Params chosen: k=${step.k}, block_size=${step.block_size}`);
-      break;
-
-    case 'pass_info':
-      logEvent(`Merge Pass ${step.pass_id} — runs before: ${step.runs_before}`);
-      break;
-
-    case 'merge_start':
-      // show initial heap and input buffers
-      if (step.input_buffers && step.input_buffers.length){
-        step.input_buffers.forEach((b, i)=>{
-          // only render into existing buffers if they exist
-          const buf = document.getElementById(`vals_${i}`);
-          if (buf) {
-            renderValuesIntoBuffer(i, b, false);
-          }
-        });
-      }
-      renderHeap(step.initial_heap || []);
-      logEvent(`Merge start pass ${step.pass_id} group ${step.group_id}`);
-      break;
-
-    case 'heap_snapshot':
-      // update heap, input buffers and output buffer
-      renderHeap(step.heap || []);
-      if (step.input_buffers && step.input_buffers.length){
-        step.input_buffers.forEach((b, i)=>{
-          const buf = document.getElementById(`vals_${i}`);
-          if (buf) renderValuesIntoBuffer(i, b, false);
-        });
-      }
-      if (step.output_buffer_sample){
-        renderOutputSample(step.output_buffer_sample);
-      }
-      logEvent(`Heap snapshot (consumed ${step.consumed_count})`);
-      break;
-
-    case 'merge_end':
-      renderOutputSample(step.output_sample || []);
-      logEvent(`Merge end pass ${step.pass_id} group ${step.group_id} — merged ~${step.merged_count_est}`);
-      break;
-
-    case 'finished':
-      renderOutputSample(step.final_preview || []);
-      logEvent('Sorting finished — final preview shown.');
-      break;
-
-    default:
-      // unknown step: log it
-      logEvent('Unknown step: ' + step.type);
-  }
-
-  stepIndex++;
-  // speed: adjust delay here (ms)
-  setTimeout(runVisualizer, 450);
+    index++;
+    setTimeout(visualize,700);
 }
 </script>
+
 </body>
 </html>
