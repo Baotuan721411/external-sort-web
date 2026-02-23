@@ -3,234 +3,225 @@
 <head>
 <meta charset="UTF-8">
 <title>External Merge Sort Visualizer</title>
-
+<script src="https://d3js.org/d3.v7.min.js"></script>
 <style>
-body{
-    font-family: Arial, Helvetica, sans-serif;
-    background: #0f172a;
-    color: white;
-    text-align: center;
-    padding-top: 50px;
-}
-
-.container{
-    width: 700px;
-    margin: auto;
-    background: #1e293b;
-    padding: 40px;
-    border-radius: 12px;
-    box-shadow: 0 0 30px rgba(0,0,0,0.4);
-}
-
-button{
-    padding: 12px 25px;
-    border: none;
-    border-radius: 8px;
-    background: #22c55e;
-    color: white;
-    font-size: 16px;
-    cursor: pointer;
-}
-
-button:hover{
-    background: #16a34a;
-}
-
-#status{
-    margin-top: 20px;
-    font-size: 18px;
-}
-
-#download{
-    display:none;
-    margin-top: 25px;
-}
-
-.bar-container{
-    margin-top:40px;
-    height:260px;
-    display:flex;
-    align-items:flex-end;
-    justify-content:center;
-    gap:6px;
-}
-
-.bar{
-    width:18px;
-    background:#38bdf8;
-    transition:height 0.5s, background 0.4s;
-    border-radius:4px 4px 0 0;
-}
-
-.bar.sorted{
-    background:#22c55e;
-}
-
-.bar.merge{
-    background:#f59e0b;
-}
-
-#phase{
-    margin-top:20px;
-    font-size:20px;
-    color:#facc15;
-}
+body{ font-family: Arial, Helvetica, sans-serif; background:#0f172a; color:#fff; text-align:center; padding-top:40px;}
+.container{ width:960px; margin:auto; background:#1e293b; padding:28px; border-radius:12px; box-shadow:0 6px 30px rgba(0,0,0,.4);}
+input[type=file]{margin:8px 0;}
+button{ padding:12px 22px; border:none; border-radius:8px; background:#22c55e; color:white; cursor:pointer;}
+#status{ margin-top:12px; font-size:16px; color:#cbd5e1;}
+#phase{ margin-top:8px; color:#facc15; font-size:18px;}
+#viz{ width:100%; height:420px; background:#020617; border-radius:8px; margin-top:18px; }
+.legend{ color:#94a3b8; font-size:13px; margin-top:6px;}
+.small{ font-size:12px; color:#94a3b8;}
 </style>
 </head>
-
 <body>
-
 <div class="container">
-<h1>External Merge Sort Visualizer</h1>
+  <h1>External Merge Sort Visualizer</h1>
 
-<input type="file" id="fileInput">
-<br><br>
-<button onclick="uploadFile()">Upload & Sort</button>
+  <input type="file" id="fileInput"><br><br>
+  <button onclick="uploadFile()">Upload & Sort</button>
 
-<div id="status"></div>
-<div id="phase"></div>
+  <div id="status">— Chưa upload —</div>
+  <div id="phase"></div>
 
-<div class="bar-container" id="bars"></div>
-
-<div id="download">
-    <p>File đã sắp xếp xong!</p>
-    <a id="downloadLink">⬇ Tải file sorted.bin</a>
-</div>
+  <svg id="viz"></svg>
+  <div class="legend small">Left: Disk runs — Middle: RAM buffers — Right: Heap — Bottom: Output</div>
 </div>
 
 <script>
+const svg = d3.select("#viz");
+const W = 920, H = 420;
+svg.attr("viewBox", `0 0 ${W} ${H}`);
 
-let jobId=null;
-let steps=[];
-let stepIndex=0;
+const leftX = 20, leftY = 30;
+const buffX = 300, buffY = 30;
+const heapX = 640, heapY = 30;
+const outX = 200, outY = 300;
 
-/* ================= UPLOAD ================= */
+const runsGroup = svg.append("g").attr("id","runsGroup");
+const buffsGroup = svg.append("g").attr("id","buffsGroup");
+const heapGroup = svg.append("g").attr("id","heapGroup").attr("transform",`translate(${heapX},${heapY})`);
+const outGroup = svg.append("g").attr("id","outGroup").attr("transform",`translate(${outX},${outY})`);
 
+svg.append("text").attr("x", leftX).attr("y", 18).text("Disk / Runs").attr("fill","#94a3b8");
+svg.append("text").attr("x", buffX).attr("y", 18).text("Buffers (RAM)").attr("fill","#94a3b8");
+svg.append("text").attr("x", heapX).attr("y", 18).text("Min-Heap").attr("fill","#94a3b8");
+svg.append("text").attr("x", outX).attr("y", outY-10).text("Output").attr("fill","#94a3b8");
+
+// helpers to render arrays
+function renderArrayInGroup(group, arr, cellW=28, cellH=20){
+  group.selectAll("*").remove();
+  if(!arr) return;
+  const g = group.selectAll("g.cell").data(arr);
+  const gEnter = g.enter().append("g").attr("class","cell")
+        .attr("transform",(d,i)=>`translate(${i*(cellW+4)},0)`);
+  gEnter.append("rect").attr("width",cellW).attr("height",cellH).attr("rx",4).attr("fill","#2563eb");
+  gEnter.append("text").attr("x",cellW/2).attr("y",cellH/2+5).attr("text-anchor","middle").attr("fill","#fff").text(d=>Math.round(d));
+}
+
+// heap renderer (horizontal)
+function renderHeap(arr){
+  heapGroup.selectAll("*").remove();
+  if(!arr || arr.length===0) return;
+  const g = heapGroup.selectAll("g.node").data(arr).enter().append("g").attr("class","node").attr("transform",(d,i)=>`translate(${i*36},0)`);
+  g.append("rect").attr("width",32).attr("height",26).attr("rx",6).attr("fill","#fb923c");
+  g.append("text").attr("x",16).attr("y",18).attr("text-anchor","middle").attr("fill","#000").text(d=>Math.round(d));
+}
+
+// output renderer
+function renderOutput(arr){
+  outGroup.selectAll("*").remove();
+  if(!arr) return;
+  const g = outGroup.selectAll("g.cell").data(arr).enter().append("g").attr("transform",(d,i)=>`translate(${i*30},0)`);
+  g.append("rect").attr("width",26).attr("height",18).attr("rx",4).attr("fill","#16a34a");
+  g.append("text").attr("x",13).attr("y",13).attr("text-anchor","middle").attr("fill","#fff").text(d=>Math.round(d));
+}
+
+let jobId = null;
+let events = [];
+let evtIndex = 0;
+
+// upload
 async function uploadFile(){
-    const fileInput=document.getElementById("fileInput");
-    const statusDiv=document.getElementById("status");
+  const fi = document.getElementById("fileInput");
+  const status = document.getElementById("status");
+  if(!fi.files.length){ alert("Chọn file!"); return; }
+  status.textContent = "Đang upload...";
+  const fd = new FormData();
+  fd.append("file", fi.files[0]);
 
-    if(fileInput.files.length===0){
-        alert("Chọn file trước!");
-        return;
-    }
-
-    statusDiv.innerHTML="Đang upload...";
-
-    let formData=new FormData();
-    formData.append("file",fileInput.files[0]);
-
-    const response=await fetch("/sort",{method:"POST",body:formData});
-    const data=await response.json();
-
-    jobId=data.job_id;
-
-    statusDiv.innerHTML="Đang sắp xếp trên server...";
-    checkStatus();
+  const res = await fetch("/sort", {method:"POST", body: fd});
+  const data = await res.json();
+  jobId = data.job_id;
+  status.textContent = "Upload xong. Đang sắp xếp trên server...";
+  pollStatus();
 }
 
-/* ================= CHECK STATUS ================= */
-
-async function checkStatus(){
-    const statusDiv=document.getElementById("status");
-    const downloadDiv=document.getElementById("download");
-    const downloadLink=document.getElementById("downloadLink");
-
-    const res=await fetch(`/status/${jobId}`);
-    const data=await res.json();
-
-    if(data.status==="processing"||data.status==="queued"){
-        setTimeout(checkStatus,3000);
-    }
-    else if(data.status==="done"){
-        statusDiv.innerHTML="Đang tải dữ liệu mô phỏng...";
-        downloadLink.href=`/download/${jobId}`;
-
-        // LẤY FILE STEPS.JSON
-        const stepsRes=await fetch(`/steps/${jobId}`);
-        const stepsData=await stepsRes.json();
-        steps=stepsData.steps;
-
-        statusDiv.innerHTML="Bắt đầu mô phỏng...";
-        visualize();
-
-        downloadDiv.style.display="block";
-    }
-    else{
-        statusDiv.innerHTML="Lỗi: "+data.status;
-    }
+async function pollStatus(){
+  const status = document.getElementById("status");
+  const phase = document.getElementById("phase");
+  if(!jobId) return;
+  const r = await fetch(`/status/${jobId}`);
+  const j = await r.json();
+  if(j.status==="processing" || j.status==="queued"){
+    status.textContent = "Server đang sắp xếp... (đợi chút)";
+    setTimeout(pollStatus, 1500);
+    return;
+  } else if(j.status==="done"){
+    status.textContent = "Hoàn tất trên server — tải dữ liệu mô phỏng...";
+    const stepsRes = await fetch(`/steps/${jobId}`);
+    const stepsData = await stepsRes.json();
+    events = stepsData.steps || [];
+    console.log("Events:", events);
+    evtIndex = 0;
+    phase.textContent = "Bắt đầu mô phỏng...";
+    // reset visual areas
+    runsGroup.selectAll("*").remove();
+    buffsGroup.selectAll("*").remove();
+    heapGroup.selectAll("*").remove();
+    outGroup.selectAll("*").remove();
+    await animateEvents(events);
+    status.textContent = "File đã sắp xếp xong!";
+    return;
+  } else {
+    status.textContent = "Lỗi job: " + j.status;
+  }
 }
 
-/* ================= DRAW BARS ================= */
+// animation engine
+async function animateEvents(evts){
+  const phase = document.getElementById("phase");
+  let buffersMap = {}; // runName -> array (small)
+  let heap = [];
+  let output = [];
 
-function drawBars(array,color="normal"){
-    const container=document.getElementById("bars");
-    container.innerHTML="";
+  // prepare placeholders for first 8 run slots visually
+  for(let i=0;i<8;i++){
+    runsGroup.append("g").attr("id",`run-slot-${i}`).attr("transform",`translate(${leftX},${leftY + i*36})`);
+  }
+  for(let i=0;i<6;i++){
+    buffsGroup.append("g").attr("id",`buff-slot-${i}`).attr("transform",`translate(${buffX},${buffY + i*36})`);
+  }
 
-    let max=Math.max(...array);
+  for(const e of evts){
+    // small delay between events (can tune)
+    await sleep(200);
 
-    array.forEach(value=>{
-        const bar=document.createElement("div");
-        bar.className="bar";
+    if(e.type === "meta"){
+      phase.textContent = `block_size=${e.block_size} — k=${e.k} — runs=${e.runs_count}`;
+    }
+    else if(e.type === "read_block"){
+      phase.textContent = `Đọc block ${e.block_id}`;
+      // render read values temporarily in run slot
+      const slotIndex = e.block_id % 8;
+      const g = runsGroup.select(`#run-slot-${slotIndex}`);
+      renderArrayInGroup(g, e.values);
+    }
+    else if(e.type === "run_created"){
+      phase.textContent = `Tạo run ${e.run_id} (${e.file})`;
+      const slotIndex = e.run_id % 8;
+      const g = runsGroup.select(`#run-slot-${slotIndex}`);
+      renderArrayInGroup(g, e.values);
+    }
+    else if(e.type === "merge_group_start"){
+      phase.textContent = `Merge pass ${e.pass_id} — group ${e.group_id}`;
+      // optionally highlight input run names
+    }
+    else if(e.type === "load_head"){
+      phase.textContent = `Load head từ ${e.run}: ${Math.round(e.value)}`;
+      // put into buffersMap
+      if(!buffersMap[e.run]){
+        // find free slot
+        const used = Object.keys(buffersMap).length;
+        buffersMap[e.run] = {slot: used, vals: [e.value]};
+      } else {
+        buffersMap[e.run].vals[0] = e.value;
+      }
+      // render current buffers
+      let i = 0;
+      for(const runName in buffersMap){
+        const slot = buffersMap[runName].slot;
+        const g = buffsGroup.select(`#buff-slot-${slot}`);
+        renderArrayInGroup(g, buffersMap[runName].vals);
+        i++;
+      }
+    }
+    else if(e.type === "heap_push"){
+      heap = Array.isArray(e.heap) ? e.heap.slice() : heap;
+      phase.textContent = `Heap push — size=${heap.length}`;
+      renderHeap(heap);
+    }
+    else if(e.type === "heap_pop"){
+      heap = Array.isArray(e.heap) ? e.heap.slice() : heap;
+      phase.textContent = `Heap pop ${Math.round(e.popped)}`;
+      renderHeap(heap);
+    }
+    else if(e.type === "write_output"){
+      output.push(e.value);
+      phase.textContent = `Ghi output: ${Math.round(e.value)} (total ${output.length})`;
+      renderOutput(output);
+    }
+    else if(e.type === "merge_group_end"){
+      phase.textContent = `Kết thúc group ${e.group_id} — merged ${e.merged ? e.merged.length : 0} (preview)`;
+      // optional: draw merged under runs area
+      const g = runsGroup.append("g").attr("transform",`translate(${leftX},${leftY + 280})`);
+      renderArrayInGroup(g, e.merged || []);
+    }
+    else if(e.type === "finished"){
+      phase.textContent = `✅ Hoàn tất — preview ${e.final ? e.final.length : output.length} phần tử`;
+      if(e.final && e.final.length) renderOutput(e.final);
+      else renderOutput(output);
+      break;
+    }
+  }
 
-        if(color==="sorted") bar.classList.add("sorted");
-        if(color==="merge") bar.classList.add("merge");
-
-        bar.style.height=(value/max*240)+"px";
-        container.appendChild(bar);
-    });
+  phase.textContent = "Mô phỏng hoàn tất.";
 }
 
-/* ================= VISUALIZE ================= */
+function sleep(ms){ return new Promise(r=>setTimeout(r, ms)); }
 
-<script>
-async function visualize(){
-    const phase=document.getElementById("phase");
-
-    // ===== FIX QUAN TRỌNG =====
-    if(!steps || steps.length===0){
-        phase.innerHTML="⚠ Không có dữ liệu mô phỏng (steps rỗng)";
-        console.log("Steps nhận được:",steps);
-        return;
-    }
-
-    if(stepIndex>=steps.length){
-        phase.innerHTML="✔ Đã chạy hết animation";
-        return;
-    }
-
-    let step=steps[stepIndex];
-
-    // tránh crash
-    if(!step){
-        console.log("Step undefined tại index:",stepIndex);
-        return;
-    }
-
-    if(step.type==="read_block"){
-        phase.innerHTML="📂 Đọc block từ file";
-        drawBars(step.data);
-    }
-
-    else if(step.type==="sort_block"){
-        phase.innerHTML="🧠 Sắp xếp trong RAM (Internal Sort)";
-        drawBars(step.data,"sorted");
-    }
-
-    else if(step.type==="merge"){
-        phase.innerHTML="🔀 Đang Merge các Run";
-        drawBars(step.result,"merge");
-    }
-
-    else if(step.type==="finished"){
-        phase.innerHTML="✅ Hoàn tất External Merge Sort!";
-        drawBars(step.data,"sorted");
-        return;
-    }
-
-    stepIndex++;
-    setTimeout(visualize,1000);
-}
 </script>
 </body>
 </html>
