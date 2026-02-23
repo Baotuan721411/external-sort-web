@@ -1,148 +1,413 @@
-<!DOCTYPE html>
+<!-- static/index.html -->
+<!doctype html>
 <html lang="vi">
 <head>
-<meta charset="UTF-8">
-<title>External Merge Sort Visualizer</title>
-
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>External Merge Sort Visualizer — Pro</title>
 <style>
-body{
-    background:#0f172a;
-    color:white;
-    text-align:center;
-    font-family:Arial;
-}
-.bar{
-    width:18px;
-    background:#38bdf8;
-    margin:2px;
-    display:inline-block;
-}
-.buffer{
-    border:2px solid #22c55e;
-    width:90px;
-    height:120px;
-    margin:5px;
-    display:inline-flex;
-    align-items:center;
-    justify-content:center;
-}
-.heap-node{
-    background:#f59e0b;
-    padding:6px 10px;
-    border-radius:8px;
-    margin:3px;
-    display:inline-block;
-}
+:root{--bg:#0b1220;--panel:#0f1726;--muted:#94a3b8;--accent:#06b6d4;--accent2:#7c3aed;}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,Arial,Helvetica,sans-serif;color:#e6eef8;background:linear-gradient(180deg,#071428 0%, #071a2a 60%);padding:18px}
+.header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.title{font-size:22px;font-weight:700}
+.controls{display:flex;gap:10px;align-items:center}
+.btn{background:linear-gradient(90deg,var(--accent),var(--accent2));color:white;padding:8px 12px;border-radius:8px;border:none;cursor:pointer;box-shadow:0 6px 14px rgba(7,89,120,0.12)}
+.btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06)}
+.container{display:grid;grid-template-columns:1fr 380px;gap:16px;margin-top:18px}
+.left{background:var(--panel);padding:16px;border-radius:10px;min-height:640px}
+.right{background:var(--panel);padding:14px;border-radius:10px;min-height:640px;display:flex;flex-direction:column}
+.file-card{display:flex;gap:12px;align-items:center;padding:10px;background:rgba(255,255,255,0.02);border-radius:8px}
+.file-icon{width:56px;height:56px;border-radius:8px;background:linear-gradient(180deg,#0e2b3a,#07222b);display:flex;align-items:center;justify-content:center;font-size:28px}
+.small{font-size:13px;color:var(--muted)}
+.buffers{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.buffer-card{width:calc(33% - 8px);min-width:170px;background:linear-gradient(180deg,#071a22,#0b2730);border-radius:8px;padding:8px;border:1px solid rgba(255,255,255,0.03)}
+.buffer-title{font-size:13px;color:var(--muted);margin-bottom:8px}
+.buffer-viewport{height:82px;display:flex;align-items:flex-end;gap:6px;padding:6px;background:rgba(255,255,255,0.01);border-radius:6px;overflow:hidden}
+.bar{width:14px;background:#38bdf8;border-radius:4px 4px 0 0;transition:height 420ms cubic-bezier(.2,.9,.3,1), transform 220ms}
+.heap{margin-top:16px;padding:10px;background:linear-gradient(180deg,#02121a,#031e24);border-radius:8px;min-height:160px;display:flex;flex-direction:column;gap:8px}
+.heap-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.heap-node{padding:8px 10px;border-radius:8px;background:linear-gradient(180deg,#ffb86b,#ff8a5c);color:#051018;min-width:54px;text-align:center;transform:translateY(0);transition:transform 280ms, opacity 180ms}
+.output{margin-top:12px;padding:10px;background:rgba(255,255,255,0.02);border-radius:8px;min-height:80px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.timeline{display:flex;align-items:center;gap:10px;margin-top:12px}
+.timeline .bar-total{flex:1;height:8px;background:rgba(255,255,255,0.03);border-radius:8px;position:relative}
+.timeline .bar-progress{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:8px;width:0%}
+.controls-bottom{display:flex;gap:8px;align-items:center;margin-top:12px}
+.log{flex:1;margin-top:12px;padding:8px;background:rgba(255,255,255,0.02);border-radius:8px;max-height:220px;overflow:auto;color:var(--muted);font-size:13px}
+kbd{background:rgba(255,255,255,0.03);padding:6px 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.03);font-weight:600}
 </style>
 </head>
-
 <body>
 
-<h1>External Merge Sort Visualizer</h1>
+<div class="header">
+  <div>
+    <div class="title">External Merge Sort Visualizer — Pro</div>
+    <div class="small">Interactive: heap push/pop, buffer read, output emit</div>
+  </div>
 
-<input type="file" id="fileInput">
-<button onclick="uploadFile()">Upload & Sort</button>
+  <div class="controls">
+    <input type="file" id="fileInput" />
+    <button class="btn" id="uploadBtn">Upload & Sort</button>
+    <button class="btn ghost" id="startBtn" disabled>Start</button>
+    <button class="btn ghost" id="downloadBtn" style="display:none">Download</button>
+  </div>
+</div>
 
-<h3 id="config"></h3>
+<div class="container">
+  <div class="left">
+    <div id="fileCard" class="file-card" style="display:none">
+      <div class="file-icon" id="fileIcon">📄</div>
+      <div>
+        <div id="fileName" style="font-weight:700"></div>
+        <div class="small" id="fileMeta"></div>
+      </div>
+    </div>
 
-<div id="buffers"></div>
-<div id="heap"></div>
-<div id="bars"></div>
+    <div class="small" style="margin-top:12px">Input Buffers (runs)</div>
+    <div class="buffers" id="buffersArea"></div>
 
-<br>
-<a id="download" style="display:none">⬇ Download sorted.bin</a>
+    <div class="heap" id="heapArea">
+      <div class="buffer-title">Heap (priority queue)</div>
+      <div class="heap-row" id="heapNodes"></div>
+
+      <div class="buffer-title" style="margin-top:8px">Output</div>
+      <div class="output" id="outputArea"></div>
+    </div>
+  </div>
+
+  <div class="right">
+    <div class="file-card" style="margin-bottom:10px">
+      <div style="flex:1">
+        <div><span class="small">k</span> <strong id="kVal">—</strong> &nbsp;&nbsp; <span class="small">block_size</span> <strong id="bVal">—</strong></div>
+        <div class="small" id="runsCount"></div>
+      </div>
+    </div>
+
+    <div class="timeline">
+      <div class="bar-total"><div class="bar-progress" id="progressBar"></div></div>
+      <div class="small" id="progressText">0 / 0</div>
+    </div>
+
+    <div class="controls-bottom">
+      <button class="btn ghost" id="pauseBtn">Pause</button>
+      <button class="btn ghost" id="stepBtn">Step</button>
+      <label class="small">Speed</label>
+      <input id="speed" type="range" min="0.2" max="2.5" step="0.1" value="1" />
+    </div>
+
+    <div class="log" id="eventsLog"></div>
+    <div style="text-align:right;margin-top:8px" class="small">Press <kbd>Space</kbd> to pause/resume — <kbd>→</kbd> to step</div>
+  </div>
+</div>
 
 <script>
-let jobId=null;
-let steps=[];
-let index=0;
+/* ---------- DOM refs ---------- */
+const uploadBtn = document.getElementById('uploadBtn');
+const startBtn = document.getElementById('startBtn');
+const fileInput = document.getElementById('fileInput');
+const fileCard = document.getElementById('fileCard');
+const fileNameEl = document.getElementById('fileName');
+const fileMeta = document.getElementById('fileMeta');
+const buffersArea = document.getElementById('buffersArea');
+const heapNodes = document.getElementById('heapNodes');
+const outputArea = document.getElementById('outputArea');
+const kVal = document.getElementById('kVal');
+const bVal = document.getElementById('bVal');
+const runsCount = document.getElementById('runsCount');
+const progressBar = document.getElementById('progressBar');
+const progressText = document.getElementById('progressText');
+const eventsLog = document.getElementById('eventsLog');
+const pauseBtn = document.getElementById('pauseBtn');
+const stepBtn = document.getElementById('stepBtn');
+const speedInput = document.getElementById('speed');
+const downloadBtn = document.getElementById('downloadBtn');
 
-async function uploadFile(){
-    const file=document.getElementById("fileInput").files[0];
-    const fd=new FormData();
-    fd.append("file",file);
+let jobId = null;
+let steps = [];
+let idx = 0;
+let timelineTotal = 0;
+let paused = false;
+let speed = 1;
 
-    const res=await fetch("/sort",{method:"POST",body:fd});
-    const data=await res.json();
-    jobId=data.job_id;
-
-    checkStatus();
+/* ---------- helpers ---------- */
+function logEvent(s){
+  const d = document.createElement('div'); d.textContent = `[${new Date().toLocaleTimeString()}] ${s}`;
+  eventsLog.prepend(d);
 }
 
-async function checkStatus(){
-    const res=await fetch(`/status/${jobId}`);
-    const data=await res.json();
+function updateProgress(){
+  const pct = timelineTotal ? Math.round((idx / timelineTotal) * 100) : 0;
+  progressBar.style.width = pct + '%';
+  progressText.innerText = `${idx} / ${timelineTotal}`;
+}
 
-    if(data.status!=="done"){
-        setTimeout(checkStatus,2000);
-        return;
+/* render small sample bars into a buffer viewport */
+function renderBufferSample(bufferId, arr){
+  const vp = document.getElementById('viewport_'+bufferId);
+  if(!vp) return;
+  vp.innerHTML = '';
+  const sample = (arr || []).slice(0, 18);
+  const maxv = Math.max(...sample, 1);
+  sample.forEach(v=>{
+    const el = document.createElement('div');
+    el.className = 'bar';
+    el.style.height = (v / maxv * 72) + 'px';
+    vp.appendChild(el);
+  });
+}
+
+/* create k buffer cards */
+function initBuffers(k){
+  buffersArea.innerHTML = '';
+  for(let i=0;i<k;i++){
+    const c = document.createElement('div');
+    c.className = 'buffer-card';
+    c.id = 'buffer_'+i;
+    c.innerHTML = `<div class="buffer-title">Run ${i}</div>
+                   <div class="buffer-viewport" id="viewport_${i}"></div>`;
+    buffersArea.appendChild(c);
+  }
+}
+
+/* heap animations */
+function animateHeapPush(value, src){
+  const node = document.createElement('div');
+  node.className = 'heap-node';
+  node.dataset.val = value;
+  node.dataset.src = src;
+  node.style.opacity = '0';
+  node.style.transform = 'translateY(8px)';
+  node.innerText = `${value.toFixed(2)}\n(s${src})`;
+  heapNodes.appendChild(node);
+  requestAnimationFrame(()=> {
+    node.style.opacity = '1';
+    node.style.transform = 'translateY(0)';
+  });
+}
+
+function animateHeapPop(value, src){
+  const nodes = Array.from(heapNodes.children);
+  const found = nodes.find(n => n.dataset.val == value && n.dataset.src == String(src));
+  if(found){
+    found.style.transform = 'translateY(-18px) scale(0.92)';
+    found.style.opacity = '0';
+    setTimeout(()=> { if(found.parentNode) found.parentNode.removeChild(found); }, 300);
+  } else {
+    // fallback transient
+    const t = document.createElement('div');
+    t.className = 'heap-node';
+    t.innerText = `${value.toFixed(2)}\n(s${src})`;
+    t.style.opacity='0';
+    heapNodes.appendChild(t);
+    requestAnimationFrame(()=> { t.style.opacity='1'; t.style.transform='translateY(-10px)'; });
+    setTimeout(()=> { t.style.opacity='0'; if(t.parentNode) t.parentNode.removeChild(t); }, 380);
+  }
+}
+
+function animateOutputEmit(value){
+  const el = document.createElement('div');
+  el.className = 'heap-node';
+  el.innerText = value.toFixed(2);
+  el.style.background = 'linear-gradient(180deg,#8be78b,#34d399)';
+  el.style.opacity='0';
+  outputArea.appendChild(el);
+  requestAnimationFrame(()=> { el.style.opacity='1'; el.style.transform='translateY(-6px)'; });
+  while(outputArea.children.length > 40) outputArea.removeChild(outputArea.children[0]);
+}
+
+/* update input buffer previews */
+function updateInputBufferSamples(list){
+  if(!list) return;
+  list.forEach((arr,i)=>{
+    const vp = document.getElementById('viewport_'+i);
+    if(vp) renderBufferSample(i, arr || []);
+  });
+}
+
+/* ---------- event processing ---------- */
+function processNextEvent(){
+  if(idx >= steps.length){
+    logEvent('Visualization finished.');
+    return false;
+  }
+  const ev = steps[idx++];
+
+  switch(ev.type){
+    case 'file_info':
+      fileCard.style.display='flex';
+      fileNameEl.innerText = ev.file_name || fileNameEl.innerText;
+      fileMeta.innerText = ev.file_size ? `${(ev.file_size/1024/1024).toFixed(2)} MB` : '';
+      break;
+
+    case 'params_chosen':
+      kVal.innerText = ev.k;
+      bVal.innerText = ev.block_size;
+      runsCount.innerText = '';
+      break;
+
+    case 'meta':
+      // meta present at steps[0]; we'll init buffers after we know k
+      kVal.innerText = ev.k || '—';
+      bVal.innerText = ev.block_size || '—';
+      runsCount.innerText = (ev.runs_count !== undefined) ? `${ev.runs_count} runs` : '';
+      initBuffers(ev.k || 6);
+      break;
+
+    case 'read_block':
+      renderBufferSample(ev.run_index || 0, ev.sample || ev.data || []);
+      logEvent(`Read block #${ev.run_index} (${ev.count || (ev.sample||[]).length} elems)`);
+      break;
+
+    case 'sort_block':
+      renderBufferSample(ev.run_index || 0, ev.sorted_sample || ev.data || []);
+      logEvent(`Sorted block #${ev.run_index}`);
+      break;
+
+    case 'merge_start':
+      updateInputBufferSamples(ev.input_buffers);
+      heapNodes.innerHTML = '';
+      if(ev.initial_heap){
+        ev.initial_heap.forEach(h => {
+          // snapshot items may be [value, src] or dicts; handle both
+          let val = Array.isArray(h) ? h[0] : (h.value || h[0]);
+          let src = Array.isArray(h) ? h[1] : (h.src || h[1]);
+          animateHeapPush(Number(val), src || 0);
+        });
+      }
+      logEvent(`Merge start pass ${ev.pass_id} group ${ev.group_id}`);
+      break;
+
+    case 'heap_push':
+      animateHeapPush(Number(ev.value), ev.src);
+      if(ev.input_buffers) updateInputBufferSamples(ev.input_buffers);
+      break;
+
+    case 'heap_pop':
+      animateHeapPop(Number(ev.value), ev.src);
+      break;
+
+    case 'input_buffer_update':
+      updateInputBufferSamples(ev.input_buffers);
+      break;
+
+    case 'output_emit':
+      animateOutputEmit(Number(ev.value));
+      break;
+
+    case 'merge_end':
+      logEvent(`Merge end pass ${ev.pass_id} group ${ev.group_id} — merged ${ev.merged_count || ev.merged_count_est || ''}`);
+      break;
+
+    case 'finished':
+      logEvent('Finished: final preview shown.');
+      if(ev.final_preview) updateInputBufferSamples([ev.final_preview]);
+      break;
+
+    default:
+      // fallback: if old format: {type: 'merge', result: [...]}
+      if(ev.type === 'merge' && ev.result){
+        heapNodes.innerHTML = '';
+        ev.result.slice(0,20).forEach((v,i) => animateHeapPush(v, i));
+      }
+      break;
+  }
+
+  updateProgress();
+  return true;
+}
+
+/* auto-play loop */
+function runLoop(){
+  if(paused) return;
+  if(idx >= steps.length) { logEvent('Done.'); return; }
+  const baseDelay = 420; // ms
+  const delay = baseDelay / speed;
+  const ok = processNextEvent();
+  if(!ok) return;
+  setTimeout(()=> { if(!paused) runLoop(); }, delay);
+}
+
+/* ---------- networking ---------- */
+uploadBtn.onclick = async () => {
+  if(!fileInput.files.length) return alert('Chọn file .bin chứa doubles');
+  uploadBtn.disabled = true;
+  const f = fileInput.files[0];
+  const fd = new FormData();
+  fd.append('file', f);
+
+  try{
+    const res = await fetch('/sort', { method: 'POST', body: fd });
+    const data = await res.json();
+    jobId = data.job_id;
+    fileCard.style.display='flex';
+    fileNameEl.innerText = f.name;
+    fileMeta.innerText = 'Uploaded — waiting server...';
+    logEvent('Upload OK. job=' + jobId);
+    pollStatus();
+  }catch(e){
+    logEvent('Upload failed: ' + e);
+    uploadBtn.disabled = false;
+  }
+};
+
+async function pollStatus(){
+  if(!jobId) return;
+  try {
+    const r = await fetch(`/status/${jobId}`);
+    const j = await r.json();
+    logEvent('Status: ' + j.status);
+    if(j.status === 'done'){
+      const sres = await fetch(`/steps/${jobId}`);
+      const data = await sres.json();
+      steps = data.steps || [];
+      timelineTotal = steps.length;
+      updateProgress();
+      // meta might be in data.meta or steps[0]
+      const meta = data.meta || (steps.length ? steps[0] : null);
+      if(meta) {
+        kVal.innerText = meta.k || kVal.innerText;
+        bVal.innerText = meta.block_size || bVal.innerText;
+        runsCount.innerText = (meta.runs_count !== undefined) ? `${meta.runs_count} runs` : '';
+        initBuffers(meta.k || 6);
+      }
+      startBtn.disabled = false;
+      downloadBtn.style.display = 'inline-block';
+      downloadBtn.onclick = ()=> window.location=`/download/${jobId}`;
+      fileMeta.innerText = 'Ready to visualize';
+      logEvent('Steps received: ' + steps.length);
+    } else if(j.status && j.status.startsWith('error')) {
+      fileMeta.innerText = 'Server error: ' + j.status;
+    } else {
+      setTimeout(pollStatus, 1000);
     }
-
-    const stepsRes=await fetch(`/steps/${jobId}`);
-    const s=await stepsRes.json();
-
-    steps=s.steps;
-    const meta=s.meta;
-
-    document.getElementById("config").innerHTML=
-        `k = ${meta.k} | block_size = ${meta.block_size}`;
-
-    drawBuffers(meta.k);
-
-    document.getElementById("download").href=`/download/${jobId}`;
-    document.getElementById("download").style.display="inline";
-
-    visualize();
+  } catch(e){
+    logEvent('Status poll failed: ' + e);
+    setTimeout(pollStatus, 1600);
+  }
 }
 
-function drawBuffers(k){
-    const b=document.getElementById("buffers");
-    b.innerHTML="";
-    for(let i=0;i<k;i++){
-        const div=document.createElement("div");
-        div.className="buffer";
-        div.innerText="Buffer "+(i+1);
-        b.appendChild(div);
-    }
-}
+/* start/pause/step handlers */
+startBtn.onclick = ()=> {
+  startBtn.disabled = true;
+  paused = false;
+  runLoop();
+};
+pauseBtn.onclick = ()=> {
+  paused = !paused;
+  pauseBtn.innerText = paused ? 'Resume' : 'Pause';
+  if(!paused) runLoop();
+};
+stepBtn.onclick = ()=> {
+  if(!paused) { paused = true; pauseBtn.innerText = 'Resume'; }
+  processNextEvent();
+};
+speedInput.oninput = ()=> speed = parseFloat(speedInput.value);
 
-function drawHeap(arr){
-    const h=document.getElementById("heap");
-    h.innerHTML="";
-    arr.slice(0,20).forEach(v=>{
-        const n=document.createElement("div");
-        n.className="heap-node";
-        n.innerText=v.toFixed(2);
-        h.appendChild(n);
-    });
-}
-
-function drawBars(arr){
-    const b=document.getElementById("bars");
-    b.innerHTML="";
-    let max=Math.max(...arr);
-    arr.forEach(v=>{
-        const bar=document.createElement("div");
-        bar.className="bar";
-        bar.style.height=(v/max*200)+"px";
-        b.appendChild(bar);
-    });
-}
-
-function visualize(){
-    if(index>=steps.length) return;
-
-    const step=steps[index];
-
-    if(step.type==="merge"){
-        drawHeap(step.result);
-        drawBars(step.result);
-    }
-
-    index++;
-    setTimeout(visualize,700);
-}
+/* keyboard */
+document.addEventListener('keydown', (e)=>{
+  if(e.code === 'Space'){ paused = !paused; pauseBtn.innerText = paused ? 'Resume' : 'Pause'; if(!paused) runLoop(); e.preventDefault(); }
+  if(e.key === 'ArrowRight'){ processNextEvent(); }
+});
 </script>
-
 </body>
 </html>
