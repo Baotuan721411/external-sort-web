@@ -19,13 +19,21 @@ class ExternalMergeSorter:
         # ma trận run (mỗi bucket chứa danh sách run files)
         self.runs = [[] for _ in range(k)]
 
-        # steps để frontend animate ( nhẹ, chỉ lưu số và arrays ngắn )
+        # steps để frontend animate ( nhẹ, lưu run list + pass merged arrays )
+        # structure:
+        # {
+        #   "block_size": int,
+        #   "k": int,
+        #   "runs": [ [nums], [nums], ... ],
+        #   "passes": [ {pass_id, group_id, inputs, merged}, ... ],
+        #   "final_preview": [nums...] (optional)
+        # }
         self.steps = {
             "block_size": self.block_size,
             "k": self.k,
-            "initial": None,   # optional: sẽ đặt khi cần
-            "runs": [],        # danh sách các run (mỗi run là list các số đã sort)
-            "passes": []       # danh sách các merge-groups: mỗi item chứa pass_id, group_id, inputs, merged
+            "runs": [],
+            "passes": [],
+            "final_preview": []
         }
 
     # ================= CLEANUP =================
@@ -46,13 +54,20 @@ class ExternalMergeSorter:
             return None
         return struct.unpack("d", data)[0]
 
+    # helper: truncate preview arrays to avoid huge payloads for frontend
+    def _preview_trim(self, arr, limit=120):
+        if arr is None:
+            return []
+        if len(arr) <= limit:
+            return arr
+        # keep first `limit` elements for visualization
+        return arr[:limit]
+
     # ================= PHASE 1: RUN GENERATION =================
     def generate_runs(self):
         # reset runs khi sort nhiều lần
         self.runs = [[] for _ in range(self.k)]
-
-        # optional: read initial small prefix for visualization (không bắt buộc)
-        # Không đọc toàn file để tránh dùng nhiều RAM.
+        self.steps["runs"] = []
 
         with open(self.input_file, "rb") as f:
             run_id = 0
@@ -69,15 +84,14 @@ class ExternalMergeSorter:
                 with open(run_name, "wb") as out:
                     out.write(struct.pack(f"{len(nums)}d", *nums))
 
-                # lưu file run vào cấu trúc runs
+                # lưu file run vào cấu trúc runs (file paths)
                 self.runs[run_id % self.k].append(run_name)
 
-                # log run (dùng để vẽ cột run trên frontend)
-                self.steps["runs"].append(nums.copy())
+                # log run (dùng để vẽ cột run trên frontend) - store the sorted values (preview-trimmed)
+                self.steps["runs"].append(self._preview_trim(nums))
 
                 run_id += 1
 
-        # Nếu muốn, frontend có thể cần initial array nhỏ: không bắt buộc
         print("Initial runs created. Total runs:", run_id)
 
     # ================= K-WAY MERGE =================
@@ -102,7 +116,8 @@ class ExternalMergeSorter:
                 value, idx = heapq.heappop(heap)
                 out.write(struct.pack("d", value))
 
-                # log value vào merged array cho animation
+                # log value vào merged array cho animation (we collect full merged for this group,
+                # but will trim when returning steps to frontend)
                 merged_values.append(value)
 
                 nxt = self._read_double(files[idx])
@@ -183,19 +198,97 @@ class ExternalMergeSorter:
             # 5. chuyển file kết quả ra ngoài temp
             shutil.move(final_run, output_file)
 
+            # 6. tạo preview final (chỉ đọc tối đa PREVIEW_LIMIT phần tử)
+            PREVIEW_LIMIT = 120
+            final_preview = []
+            try:
+                with open(output_file, "rb") as f:
+                    # read up to PREVIEW_LIMIT doubles
+                    for _ in range(PREVIEW_LIMIT):
+                        data = f.read(8)
+                        if not data:
+                            break
+                        final_preview.append(struct.unpack("d", data)[0])
+            except Exception as e:
+                print("Warning: failed to read final preview:", e)
+                final_preview = []
+
+            self.steps["final_preview"] = self._preview_trim(final_preview, PREVIEW_LIMIT)
+
             print("SORT COMPLETED.")
             print("Output file:", output_file)
 
         finally:
-            # 6. xóa toàn bộ run files
+            # 7. xóa toàn bộ run files
             # (LƯU Ý: steps đã được ghi vào self.steps trước khi xóa)
             self.cleanup()
 
     def get_steps(self):
         """
-        Trả object steps (chuẩn JSON serializable) cho frontend.
+        Trả một LIST các step (chuẩn JSON serializable) cho frontend.
+        Format trả về: [ {type:... , data:...}, ... ]
         """
-        return self.steps
+        steps_list = []
+
+        # meta step (optional)
+        steps_list.append({
+            "type": "meta",
+            "block_size": self.block_size,
+            "k": self.k,
+            "runs_count": len(self.steps.get("runs", []))
+        })
+
+        # show runs (as read_block then sort_block)
+        for idx, run in enumerate(self.steps.get("runs", [])):
+            # read_block (we only have the post-sort values; it's okay)
+            steps_list.append({
+                "type": "read_block",
+                "run_index": idx,
+                "data": self._preview_trim(run)
+            })
+            # sort_block
+            steps_list.append({
+                "type": "sort_block",
+                "run_index": idx,
+                "data": self._preview_trim(run)
+            })
+
+        # show merge passes (in recorded order)
+        for p in self.steps.get("passes", []):
+            steps_list.append({
+                "type": "merge",
+                "pass_id": p.get("pass_id"),
+                "group_id": p.get("group_id"),
+                "inputs": p.get("inputs", []),
+                "result": self._preview_trim(p.get("merged", []))
+            })
+
+        # finished: use final_preview if available, else use last merged result
+        final_preview = self.steps.get("final_preview", [])
+        if final_preview:
+            steps_list.append({
+                "type": "finished",
+                "data": self._preview_trim(final_preview)
+            })
+        else:
+            # fallback to last pass merged array
+            passes = self.steps.get("passes", [])
+            if passes:
+                steps_list.append({
+                    "type": "finished",
+                    "data": self._preview_trim(passes[-1].get("merged", []))
+                })
+            else:
+                # as last resort combine runs (may be empty)
+                combined = []
+                for r in self.steps.get("runs", []):
+                    combined.extend(r)
+                steps_list.append({
+                    "type": "finished",
+                    "data": self._preview_trim(combined)
+                })
+
+        return steps_list
 
 
 def external_merge_sort(input_path, output_path):
