@@ -1,172 +1,116 @@
-```html
 <!DOCTYPE html>
 <html lang="vi">
 <head>
 <meta charset="UTF-8">
 <title>External Merge Sort Visualizer</title>
-
 <style>
-body{
-    font-family: Arial, Helvetica, sans-serif;
-    background:#0f172a;
-    color:white;
-    text-align:center;
-}
-
-.container{
-    width:900px;
-    margin:auto;
-    margin-top:40px;
-}
-
-.card{
-    background:#1e293b;
-    padding:20px;
-    border-radius:14px;
-    box-shadow:0 0 20px rgba(0,0,0,0.3);
-}
-
-button{
-    padding:12px 18px;
-    border-radius:10px;
-    border:none;
-    background:#3b82f6;
-    color:white;
-    font-weight:bold;
-    cursor:pointer;
-}
-
-button:hover{
-    background:#2563eb;
-}
-
-#status{
-    margin-top:15px;
-    font-size:18px;
-    font-weight:bold;
-}
-
-input[type=file]{
-    margin-top:15px;
-    margin-bottom:15px;
-}
-
-#downloadBox{
-    margin-top:25px;
-}
+body{font-family:Arial;background:#0f172a;color:white;text-align:center;padding-top:50px}
+.container{width:700px;margin:auto;background:#1e293b;padding:40px;border-radius:12px}
+.bar-container{margin-top:40px;height:260px;display:flex;align-items:flex-end;justify-content:center;gap:6px}
+.bar{width:18px;background:#38bdf8;border-radius:4px 4px 0 0;transition:0.5s}
+.sorted{background:#22c55e}
+.merge{background:#f59e0b}
 </style>
 </head>
 
 <body>
-
 <div class="container">
-<div class="card">
-
-<h1>External Merge Sort (Binary File)</h1>
-
-<form id="uploadForm">
-    <input type="file" id="fileInput" required>
-    <br>
-    <button type="submit">Upload & Sort</button>
-</form>
-
+<h1>External Merge Sort Visualizer</h1>
+<input type="file" id="fileInput">
+<br><br>
+<button onclick="uploadFile()">Upload & Sort</button>
 <div id="status"></div>
-
-<!-- DOWNLOAD BUTTON -->
-<div id="downloadBox" style="display:none;">
-    <a id="downloadBtn"
-       style="
-       background:#22c55e;
-       padding:12px 20px;
-       border-radius:10px;
-       text-decoration:none;
-       color:white;
-       font-weight:bold;">
-       ⬇ Tải file sorted.bin
-    </a>
+<div id="phase"></div>
+<div class="bar-container" id="bars"></div>
+<a id="downloadLink" style="display:none">⬇ Tải file sorted.bin</a>
 </div>
-
-</div>
-</div>
-
 
 <script>
 
-const form = document.getElementById("uploadForm");
-const statusBox = document.getElementById("status");
+let jobId=null;
+let steps=[];
+let stepIndex=0;
 
-let jobId = null;
+async function uploadFile(){
 
-// upload file
-form.addEventListener("submit", async (e)=>{
-    e.preventDefault();
+    const file=document.getElementById("fileInput").files[0];
+    if(!file){ alert("Chọn file"); return;}
 
-    const file = document.getElementById("fileInput").files[0];
-    if(!file){
-        alert("Chọn file trước!");
+    let formData=new FormData();
+    formData.append("file",file);
+
+    const res=await fetch("/sort",{method:"POST",body:formData});
+    const data=await res.json();
+
+    jobId=data.job_id;
+
+    checkStatus();
+}
+
+async function checkStatus(){
+
+    const res=await fetch(`/status/${jobId}`);
+    const data=await res.json();
+
+    if(data.status==="done"){
+
+        const stepsRes=await fetch(`/steps/${jobId}`);
+        const stepsData=await stepsRes.json();
+
+        steps=stepsData.steps;
+        stepIndex=0;
+
+        document.getElementById("downloadLink").href=`/download/${jobId}`;
+        document.getElementById("downloadLink").style.display="block";
+
+        visualize();
+    }
+    else{
+        setTimeout(checkStatus,2000);
+    }
+}
+
+function drawBars(arr,type="normal"){
+
+    const container=document.getElementById("bars");
+    container.innerHTML="";
+
+    let max=Math.max(...arr,1);
+
+    arr.forEach(v=>{
+        const bar=document.createElement("div");
+        bar.className="bar";
+        if(type==="sorted") bar.classList.add("sorted");
+        if(type==="merge") bar.classList.add("merge");
+        bar.style.height=(v/max*240)+"px";
+        container.appendChild(bar);
+    });
+}
+
+function visualize(){
+
+    if(stepIndex>=steps.length) return;
+
+    const step=steps[stepIndex];
+
+    if(step.type==="read_block"){
+        drawBars(step.data);
+    }
+    else if(step.type==="sort_block"){
+        drawBars(step.data,"sorted");
+    }
+    else if(step.type==="merge"){
+        drawBars(step.data,"merge");
+    }
+    else if(step.type==="finished"){
+        drawBars(step.data,"sorted");
         return;
     }
 
-    statusBox.textContent = "Đang upload...";
-
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const res = await fetch("/upload",{
-        method:"POST",
-        body:formData
-    });
-
-    const data = await res.json();
-
-    jobId = data.job_id;
-    statusBox.textContent = "Đang sắp xếp...";
-    pollStatus();
-});
-
-
-// hỏi server trạng thái
-async function pollStatus(){
-
-    while(true){
-
-        const res = await fetch(`/status/${jobId}`);
-        const data = await res.json();
-
-        // đang chạy
-        if(data.status === "running"){
-            statusBox.textContent = "Đang sắp xếp... (" + data.progress + "%)";
-        }
-
-        // xong
-        if(data.status === "done"){
-            statusBox.textContent = "File đã sắp xếp xong!";
-
-            const downloadBox = document.getElementById("downloadBox");
-            const downloadBtn = document.getElementById("downloadBtn");
-
-            downloadBtn.href = `/download/${jobId}`;
-            downloadBox.style.display = "block";
-
-            return;
-        }
-
-        // lỗi
-        if(data.status === "error"){
-            statusBox.textContent = "Lỗi: " + data.message;
-            return;
-        }
-
-        await sleep(1500);
-    }
-}
-
-function sleep(ms){
-    return new Promise(r=>setTimeout(r, ms));
+    stepIndex++;
+    setTimeout(visualize,600);
 }
 
 </script>
-
 </body>
 </html>
-```
