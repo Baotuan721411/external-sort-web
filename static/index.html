@@ -183,39 +183,54 @@ function drawBars(array,color="normal"){
 
 /* ================= VISUALIZE ================= */
 
+<script>
 async function visualize(){
     const phase=document.getElementById("phase");
 
-    if(stepIndex>=steps.length) return;
+    // ===== FIX QUAN TRỌNG =====
+    if(!steps || steps.length===0){
+        phase.innerHTML="⚠ Không có dữ liệu mô phỏng (steps rỗng)";
+        console.log("Steps nhận được:",steps);
+        return;
+    }
+
+    if(stepIndex>=steps.length){
+        phase.innerHTML="✔ Đã chạy hết animation";
+        return;
+    }
 
     let step=steps[stepIndex];
+
+    // tránh crash
+    if(!step){
+        console.log("Step undefined tại index:",stepIndex);
+        return;
+    }
 
     if(step.type==="read_block"){
         phase.innerHTML="📂 Đọc block từ file";
         drawBars(step.data);
     }
 
-    if(step.type==="sort_block"){
+    else if(step.type==="sort_block"){
         phase.innerHTML="🧠 Sắp xếp trong RAM (Internal Sort)";
         drawBars(step.data,"sorted");
     }
 
-    if(step.type==="merge"){
+    else if(step.type==="merge"){
         phase.innerHTML="🔀 Đang Merge các Run";
         drawBars(step.result,"merge");
     }
 
-    if(step.type==="finished"){
+    else if(step.type==="finished"){
         phase.innerHTML="✅ Hoàn tất External Merge Sort!";
         drawBars(step.data,"sorted");
         return;
     }
 
     stepIndex++;
-    setTimeout(visualize,1200);
+    setTimeout(visualize,1000);
 }
-
 </script>
-
 </body>
 </html>
