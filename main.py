@@ -1,476 +1,166 @@
-# sorter/external_merge_sort.py
-import struct
+# main.py
 import os
-import heapq
-import tempfile
-import shutil
-from .auto_config import auto_tune_params
+import uuid
+import json
+import threading
+from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from sorter.external_merge_sort import external_merge_sort, external_merge_sort_visualize
 
-# Tune these for visualization vs payload size
-INPUT_PREVIEW_AHEAD = 8       # peek this many values for input-buffer preview
-PREVIEW_LIMIT = 120           # trimming final previews
-HEAP_SNAPSHOT_LIMIT = 40      # how many heap items to include in snapshot
-INPUT_BUFFER_SAMPLE = 18      # how many items to draw per buffer
-INPUT_BUFFER_LOG_FREQ = 10    # log input_buffer_update every N outputs
+app = FastAPI(title="External Merge Sort Service")
 
-# ── Visualize mode caps ──────────────────────────────────────────────────────
-VISUALIZE_MAX_NUMBERS = 300   # sample input xuống tối đa N số khi visualize
-VISUALIZE_HEAP_LOG_EVERY = 1  # log mỗi N heap ops (tăng lên để giảm steps)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+INPUT_DIR  = os.path.join(BASE_DIR, "storage", "input")
+OUTPUT_DIR = os.path.join(BASE_DIR, "storage", "output")
+
+os.makedirs(INPUT_DIR,  exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+os.makedirs(STATIC_DIR, exist_ok=True)
+
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# job tracking
+jobs = {}   # job_id -> "queued" | "processing" | "done" | "error: ..."
 
 
-class ExternalMergeSorter:
-    def __init__(self, input_file, block_size=None, k=None, visualize=False):
-        self.input_file = input_file
-        self.block_size = block_size
-        self.k = k
-        self.visualize = visualize  # ← chế độ visualize
+# ── Homepage ──────────────────────────────────────────────────
+@app.get("/")
+def homepage():
+    return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
-        self.work_dir = tempfile.mkdtemp(prefix="extsort_")
-        self.runs = []
-        self.steps = []
 
-    def cleanup(self):
-        shutil.rmtree(self.work_dir, ignore_errors=True)
+# ── Background sort thật ──────────────────────────────────────
+def run_sort(job_id: str, input_path: str, output_path: str):
+    try:
+        jobs[job_id] = "processing"
+        external_merge_sort(input_path, output_path)
 
-    # ---------- helpers ----------
-    def _read_block(self, f):
-        chunk = f.read(8 * self.block_size)
-        if not chunk:
-            return None
-        return list(struct.unpack(f"{len(chunk)//8}d", chunk))
-
-    def _read_double(self, f):
-        data = f.read(8)
-        if not data:
-            return None
-        return struct.unpack("d", data)[0]
-
-    def _peek_next(self, f, n=INPUT_PREVIEW_AHEAD):
-        pos = f.tell()
-        data = f.read(8 * n)
-        nums = []
-        if data:
-            nums = list(struct.unpack(f"{len(data)//8}d", data))
-        f.seek(pos)
-        return nums
-
-    def _sample(self, arr, limit=PREVIEW_LIMIT):
-        if not arr:
-            return []
-        n = len(arr)
-        if n <= limit:
-            return arr
-        step = n / limit
-        res = []
-        i = 0.0
-        while int(i) < n:
-            res.append(arr[int(i)])
-            i += step
-        return res[:limit]
-
-    def _sample_small(self, arr, limit=INPUT_BUFFER_SAMPLE):
-        if not arr:
-            return []
-        return arr[:limit]
-
-    # ---------- NEW: sample input file để visualize ----------
-    def _sample_input_for_visualize(self):
-        """
-        Đọc tối đa VISUALIZE_MAX_NUMBERS doubles từ input,
-        ghi vào file tạm, trả về path file tạm đó.
-        """
-        sampled = []
-        with open(self.input_file, "rb") as f:
-            while len(sampled) < VISUALIZE_MAX_NUMBERS:
-                data = f.read(8)
-                if not data:
-                    break
-                sampled.append(struct.unpack("d", data)[0])
-
-        tmp_path = os.path.join(self.work_dir, "_visualize_input.bin")
-        with open(tmp_path, "wb") as f:
-            f.write(struct.pack(f"{len(sampled)}d", *sampled))
-
-        return tmp_path, len(sampled)
-
-    # ---------- phase 1: run generation ----------
-    def generate_runs(self):
-        self.runs = []
-        run_id = 0
-
+        # cleanup input sau khi sort xong
         try:
-            size = os.path.getsize(self.input_file)
+            os.remove(input_path)
         except Exception:
-            size = None
+            pass
 
-        self.steps.append({
-            "type": "file_info",
-            "file_name": os.path.basename(self.input_file),
-            "file_size": size
-        })
+        jobs[job_id] = "done"
+    except Exception as e:
+        jobs[job_id] = f"error: {str(e)}"
+        try:
+            os.remove(input_path)
+        except Exception:
+            pass
 
-        with open(self.input_file, "rb") as f:
+
+# ── /sort/visualize — endpoint chính ─────────────────────────
+@app.post("/sort/visualize")
+async def sort_visualize(file: UploadFile = File(...)):
+    """
+    Upload file .bin MỘT LẦN DUY NHẤT.
+    - Lưu file vào disk
+    - Chạy visualize ngay (sample 300 số) → trả steps JSON
+    - Đồng thời khởi động sort thật ở background thread
+    - Trả về job_id để frontend poll /status/{job_id} và /download/{job_id}
+    """
+    job_id      = str(uuid.uuid4())
+    input_path  = os.path.join(INPUT_DIR,  f"{job_id}_{file.filename}")
+    output_path = os.path.join(OUTPUT_DIR, f"sorted_{job_id}.bin")
+
+    # 1. Lưu file upload vào disk (1 lần duy nhất)
+    try:
+        with open(input_path, "wb") as buf:
             while True:
-                nums = self._read_block(f)
-                if nums is None:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
                     break
+                buf.write(chunk)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
 
-                self.steps.append({
-                    "type": "read_block",
-                    "run_index": run_id,
-                    "sample": self._sample_small(nums, limit=INPUT_BUFFER_SAMPLE),
-                    "count": len(nums)
-                })
+    # 2. Khởi động sort thật ở background (dùng file vừa lưu)
+    jobs[job_id] = "queued"
+    t = threading.Thread(
+        target=run_sort,
+        args=(job_id, input_path, output_path),
+        daemon=True
+    )
+    t.start()
 
-                nums.sort()
+    # 3. Chạy visualize ngay trên cùng file (sample nhỏ, nhanh)
+    try:
+        steps = external_merge_sort_visualize(input_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Visualize error: {e}")
 
-                run_path = os.path.join(self.work_dir, f"run_{run_id}.bin")
-                with open(run_path, "wb") as out:
-                    out.write(struct.pack(f"{len(nums)}d", *nums))
+    # 4. Tìm meta và params
+    meta   = next((s for s in steps if s.get("type") == "meta"),          None)
+    params = next((s for s in steps if s.get("type") == "params_chosen"), None)
 
-                self.steps.append({
-                    "type": "sort_block",
-                    "run_index": run_id,
-                    "sorted_sample": self._sample_small(nums, limit=INPUT_BUFFER_SAMPLE),
-                    "count": len(nums)
-                })
-
-                self.runs.append(run_path)
-                run_id += 1
-
-        self.steps.insert(0, {
-            "type": "meta",
-            "block_size": self.block_size,
-            "k": self.k,
-            "runs_count": len(self.runs)
-        })
-
-    # ---------- K-way merge ----------
-    def merge_k_runs(self, input_runs, output_run, pass_id=None, group_id=None):
-        files = [open(r, "rb") for r in input_runs]
-        heap = []
-        heap_op_count = 0  # ← đếm để throttle logging
-
-        for i, f in enumerate(files):
-            num = self._read_double(f)
-            if num is not None:
-                heapq.heappush(heap, (num, i))
-                heap_op_count += 1
-                # Trong visualize mode: log mỗi push ban đầu
-                # Trong production mode: bỏ qua hoàn toàn
-                if self.visualize:
-                    self.steps.append({
-                        "type": "heap_push",
-                        "pass_id": pass_id,
-                        "group_id": group_id,
-                        "value": num,
-                        "src": i,
-                        "heap_snapshot": [list(x) for x in sorted(heap)[:HEAP_SNAPSHOT_LIMIT]]
-                    })
-
-        input_buffers = [self._peek_next(f, n=INPUT_PREVIEW_AHEAD) for f in files]
-
-        self.steps.append({
-            "type": "merge_start",
-            "pass_id": pass_id,
-            "group_id": group_id,
-            "inputs": [os.path.basename(p) for p in input_runs],
-            "input_buffers": [self._sample_small(b) for b in input_buffers],
-            "initial_heap": [list(x) for x in sorted(heap)[:HEAP_SNAPSHOT_LIMIT]]
-        })
-
-        merged_count = 0
-
-        with open(output_run, "wb") as out:
-            while heap:
-                value, src_idx = heapq.heappop(heap)
-                heap_op_count += 1
-
-                # ── heap_pop: chỉ log trong visualize mode ──
-                if self.visualize and heap_op_count % VISUALIZE_HEAP_LOG_EVERY == 0:
-                    self.steps.append({
-                        "type": "heap_pop",
-                        "pass_id": pass_id,
-                        "group_id": group_id,
-                        "value": value,
-                        "src": src_idx,
-                        "heap_snapshot": [list(x) for x in sorted(heap)[:HEAP_SNAPSHOT_LIMIT]]
-                    })
-
-                out.write(struct.pack("d", value))
-                merged_count += 1
-
-                # ── output_emit: log trong cả 2 mode nhưng throttle ──
-                log_freq = 1 if self.visualize else INPUT_BUFFER_LOG_FREQ
-                if merged_count % log_freq == 0:
-                    self.steps.append({
-                        "type": "output_emit",
-                        "pass_id": pass_id,
-                        "group_id": group_id,
-                        "value": value,
-                        "emitted_count": merged_count
-                    })
-
-                nxt = self._read_double(files[src_idx])
-                if nxt is not None:
-                    heapq.heappush(heap, (nxt, src_idx))
-                    heap_op_count += 1
-                    if self.visualize and heap_op_count % VISUALIZE_HEAP_LOG_EVERY == 0:
-                        self.steps.append({
-                            "type": "heap_push",
-                            "pass_id": pass_id,
-                            "group_id": group_id,
-                            "value": nxt,
-                            "src": src_idx,
-                            "heap_snapshot": [list(x) for x in sorted(heap)[:HEAP_SNAPSHOT_LIMIT]]
-                        })
-
-                input_buffers[src_idx] = self._peek_next(files[src_idx], n=INPUT_PREVIEW_AHEAD)
-
-                if merged_count % INPUT_BUFFER_LOG_FREQ == 0:
-                    self.steps.append({
-                        "type": "input_buffer_update",
-                        "pass_id": pass_id,
-                        "group_id": group_id,
-                        "input_buffers": [self._sample_small(b) for b in input_buffers],
-                        "consumed_count": merged_count
-                    })
-
-        for f in files:
-            f.close()
-
-        self.steps.append({
-            "type": "merge_end",
-            "pass_id": pass_id,
-            "group_id": group_id,
-            "merged_count": merged_count
-        })
-
-    # ---------- one merge pass ----------
-    def merge_pass(self, runs, pass_id):
-        new_runs = []
-        i = 0
-        group_id = 0
-        while i < len(runs):
-            group = runs[i:i + self.k]
-            out_run = os.path.join(self.work_dir, f"pass{pass_id}_run{group_id}.bin")
-            self.merge_k_runs(group, out_run, pass_id=pass_id, group_id=group_id)
-            new_runs.append(out_run)
-            i += self.k
-            group_id += 1
-        return new_runs
-
-    # ---------- multi-pass merge ----------
-    def multi_pass_merge(self):
-        current = list(self.runs)
-        pass_id = 0
-        while len(current) > 1:
-            self.steps.append({
-                "type": "pass_info",
-                "pass_id": pass_id,
-                "runs_before": len(current),
-                "k": self.k
-            })
-            current = self.merge_pass(current, pass_id)
-            pass_id += 1
-        return current[0] if current else None
-
-    # ---------- main pipeline ----------
-    def sort(self, output_file):
-        try:
-            if self.block_size is None or self.k is None:
-                b, kk = auto_tune_params(self.input_file)
-                if self.block_size is None:
-                    self.block_size = b
-                if self.k is None:
-                    self.k = kk
-
-            self.steps.append({
-                "type": "params_chosen",
-                "block_size": self.block_size,
-                "k": self.k
-            })
-
-            self.generate_runs()
-            final = self.multi_pass_merge()
-
-            out_dir = os.path.dirname(output_file)
-            if out_dir:
-                os.makedirs(out_dir, exist_ok=True)
-            if final is None:
-                open(output_file, "wb").close()
-            else:
-                if os.path.exists(output_file):
-                    os.remove(output_file)
-                shutil.move(final, output_file)
-
-            final_preview = []
-            try:
-                with open(output_file, "rb") as f:
-                    for _ in range(PREVIEW_LIMIT):
-                        data = f.read(8)
-                        if not data:
-                            break
-                        final_preview.append(struct.unpack("d", data)[0])
-            except Exception:
-                final_preview = []
-
-            self.steps.append({
-                "type": "finished",
-                "final_preview": self._sample(final_preview, limit=PREVIEW_LIMIT)
-            })
-
-        finally:
-            self.cleanup()
-
-    # ---------- NEW: visualize pipeline (sort trên sample nhỏ) ----------
-    def sort_visualize(self):
-        """
-        Sort trên sample nhỏ (tối đa VISUALIZE_MAX_NUMBERS số).
-        KHÔNG ghi output file thật, KHÔNG đụng vào self.input_file gốc.
-        Dùng work_dir riêng hoàn toàn tách biệt với run_sort background.
-        Trả về steps để frontend visualize.
-        """
-        # work_dir riêng cho visualize — tránh xung đột với run_sort
-        viz_work_dir = tempfile.mkdtemp(prefix="extsort_viz_")
-
-        try:
-            # 1. Sample input — đọc file gốc nhưng ghi ra viz_work_dir
-            #    KHÔNG đè self.input_file để run_sort vẫn dùng được file gốc
-            sampled = []
-            with open(self.input_file, "rb") as f:
-                while len(sampled) < VISUALIZE_MAX_NUMBERS:
-                    data = f.read(8)
-                    if not data:
-                        break
-                    sampled.append(struct.unpack("d", data)[0])
-
-            actual_count = len(sampled)
-            viz_input = os.path.join(viz_work_dir, "_sample.bin")
-            with open(viz_input, "wb") as f:
-                f.write(struct.pack(f"{actual_count}d", *sampled))
-
-            # 2. Chọn params dựa trên file gốc (kích thước thật)
-            #    nhưng giới hạn lại cho dễ visualize
-            original_size = os.path.getsize(self.input_file)
-            b, kk = auto_tune_params(self.input_file)
-
-            viz_block_size = self.block_size if self.block_size else min(b, max(10, actual_count // 4))
-            viz_k          = self.k          if self.k          else min(kk, 4)
-
-            self.steps.append({
-                "type": "params_chosen",
-                "block_size": viz_block_size,
-                "k":          viz_k,
-                "visualize_sample_size": actual_count,
-                # thông tin file gốc để frontend hiển thị
-                "original_file_size": original_size,
-            })
-
-            # 3. Generate runs từ file sample — dùng viz_work_dir
-            runs = []
-            run_id = 0
-            with open(viz_input, "rb") as f:
-                while True:
-                    chunk = f.read(8 * viz_block_size)
-                    if not chunk:
-                        break
-                    nums = list(struct.unpack(f"{len(chunk)//8}d", chunk))
-
-                    self.steps.append({
-                        "type":      "read_block",
-                        "run_index": run_id,
-                        "sample":    self._sample_small(nums),
-                        "count":     len(nums)
-                    })
-
-                    nums.sort()
-
-                    run_path = os.path.join(viz_work_dir, f"run_{run_id}.bin")
-                    with open(run_path, "wb") as out:
-                        out.write(struct.pack(f"{len(nums)}d", *nums))
-
-                    self.steps.append({
-                        "type":         "sort_block",
-                        "run_index":    run_id,
-                        "sorted_sample":self._sample_small(nums),
-                        "count":        len(nums)
-                    })
-
-                    runs.append(run_path)
-                    run_id += 1
-
-            self.steps.insert(0, {
-                "type":       "meta",
-                "block_size": viz_block_size,
-                "k":          viz_k,
-                "runs_count": len(runs)
-            })
-
-            # 4. Merge passes — tất cả file tạm trong viz_work_dir
-            current = list(runs)
-            pass_id = 0
-            while len(current) > 1:
-                self.steps.append({
-                    "type":        "pass_info",
-                    "pass_id":     pass_id,
-                    "runs_before": len(current),
-                    "k":           viz_k
-                })
-                new_runs  = []
-                group_id  = 0
-                i         = 0
-                while i < len(current):
-                    group   = current[i:i + viz_k]
-                    out_run = os.path.join(viz_work_dir, f"pass{pass_id}_run{group_id}.bin")
-                    # merge_k_runs dùng self.k và self.visualize nên cần set tạm
-                    old_k, self.k = self.k, viz_k
-                    self.merge_k_runs(group, out_run, pass_id=pass_id, group_id=group_id)
-                    self.k = old_k
-                    new_runs.append(out_run)
-                    i        += viz_k
-                    group_id += 1
-                current  = new_runs
-                pass_id += 1
-
-            # 5. Final preview
-            final_preview = []
-            if current:
-                try:
-                    with open(current[0], "rb") as f:
-                        while True:
-                            data = f.read(8)
-                            if not data:
-                                break
-                            final_preview.append(struct.unpack("d", data)[0])
-                except Exception:
-                    pass
-
-            self.steps.append({
-                "type":          "finished",
-                "final_preview": final_preview[:PREVIEW_LIMIT]
-            })
-
-        finally:
-            # Chỉ xóa viz_work_dir — KHÔNG xóa file input gốc
-            shutil.rmtree(viz_work_dir, ignore_errors=True)
-
-        return self.steps
-
-    def get_steps(self):
-        return self.steps
+    return JSONResponse(content={
+        "steps":        steps,
+        "meta":         meta,
+        "job_id":       job_id,
+        "status_url":   f"/status/{job_id}",
+        "download_url": f"/download/{job_id}",
+        "sample_size":  params.get("visualize_sample_size") if params else None,
+        "total_steps":  len(steps),
+    })
 
 
-# ---------- wrapper functions ----------
+# ── /sort — giữ lại để backward compat ───────────────────────
+@app.post("/sort")
+async def sort_file(file: UploadFile = File(...)):
+    job_id      = str(uuid.uuid4())
+    input_path  = os.path.join(INPUT_DIR,  f"{job_id}_{file.filename}")
+    output_path = os.path.join(OUTPUT_DIR, f"sorted_{job_id}.bin")
 
-def external_merge_sort(input_path, output_path, block_size=None, k=None):
-    """Sort thật — nhanh, ít log, trả file .bin"""
-    sorter = ExternalMergeSorter(input_path, block_size=block_size, k=k, visualize=False)
-    sorter.sort(output_path)
-    return sorter.get_steps()
+    with open(input_path, "wb") as buf:
+        while True:
+            chunk = await file.read(1024 * 1024)
+            if not chunk:
+                break
+            buf.write(chunk)
+
+    jobs[job_id] = "queued"
+    t = threading.Thread(
+        target=run_sort,
+        args=(job_id, input_path, output_path),
+        daemon=True
+    )
+    t.start()
+
+    return {
+        "job_id":       job_id,
+        "status_url":   f"/status/{job_id}",
+        "download_url": f"/download/{job_id}",
+    }
 
 
-def external_merge_sort_visualize(input_path, block_size=None, k=None):
-    """Sort để visualize — sample input nhỏ, log chi tiết, không cần output file"""
-    sorter = ExternalMergeSorter(input_path, block_size=block_size, k=k, visualize=True)
-    return sorter.sort_visualize()
+# ── Status & Download ─────────────────────────────────────────
+@app.get("/status/{job_id}")
+def check_status(job_id: str):
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+    return {"job_id": job_id, "status": jobs[job_id]}
+
+
+@app.get("/download/{job_id}")
+def download_file(job_id: str):
+    if job_id not in jobs:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    status = jobs[job_id]
+    if status in ("processing", "queued"):
+        raise HTTPException(status_code=202, detail="Still processing")
+    if status.startswith("error"):
+        raise HTTPException(status_code=500, detail=status)
+
+    file_path = os.path.join(OUTPUT_DIR, f"sorted_{job_id}.bin")
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Output file not found")
+
+    return FileResponse(
+        path=file_path,
+        filename="sorted.bin",
+        media_type="application/octet-stream"
+    )
