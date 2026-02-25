@@ -17,9 +17,11 @@
   --font-mono:'Space Mono',monospace;--font-body:'DM Sans',sans-serif;
 }
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body)}
-body::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.4}
+body::before{content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:0;opacity:.4}
 
-.app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;padding:20px;gap:16px;max-width:1500px;margin:0 auto}
+.app{position:relative;z-index:1;min-height:100vh;display:flex;flex-direction:column;padding:20px;gap:14px;max-width:1500px;margin:0 auto}
 
 /* ── Header ── */
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
@@ -31,16 +33,33 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .file-label{display:flex;align-items:center;gap:7px;padding:7px 13px;border-radius:8px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:13px;color:var(--muted);transition:border-color .2s,color .2s}
 .file-label:hover{border-color:var(--cyan);color:var(--text)}
 #fileNameDisplay{font-size:12px;color:var(--muted);max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 15px;border-radius:8px;border:none;font-family:var(--font-body);font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s,transform .1s}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:8px;border:none;font-family:var(--font-body);font-size:12px;font-weight:500;cursor:pointer;transition:opacity .15s,transform .1s}
 .btn:active{transform:scale(.97)}
 .btn-primary{background:linear-gradient(135deg,var(--cyan),var(--violet));color:#fff}
 .btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
-.btn-ghost:hover{color:var(--text)}
-.btn:disabled{opacity:.35;cursor:not-allowed;pointer-events:none}
+.btn-ghost:hover{color:var(--text);border-color:rgba(255,255,255,.15)}
+.btn-back{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);color:var(--orange)}
+.btn-back:hover{background:rgba(245,158,11,.18)}
+.btn:disabled{opacity:.3;cursor:not-allowed;pointer-events:none}
 .btn-dl{background:rgba(34,211,160,.12);border:1px solid rgba(34,211,160,.3);color:var(--green)}
 .spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--cyan);border-radius:50%;animation:spin .7s linear infinite;display:none}
 .spinner.active{display:block}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Sampling Mode Banner ── */
+.sampling-banner{
+  display:none;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:10px 16px;border-radius:10px;
+  background:rgba(253,224,71,.06);border:1px solid rgba(253,224,71,.25);
+}
+.sampling-banner.show{display:flex}
+.sb-icon{font-size:16px}
+.sb-title{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--yellow)}
+.sb-desc{font-size:12px;color:var(--muted)}
+.sb-pills{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap}
+.sb-pill{font-family:var(--font-mono);font-size:10px;padding:3px 9px;border-radius:12px}
+.sb-pill.real{background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.25);color:var(--cyan)}
+.sb-pill.sim{background:rgba(253,224,71,.1);border:1px solid rgba(253,224,71,.25);color:var(--yellow)}
 
 /* ── Info bar ── */
 .info-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
@@ -51,105 +70,117 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .info-pill.green span{color:var(--green)}
 .phase-badge{font-family:var(--font-mono);font-size:11px;padding:4px 12px;border-radius:20px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);color:var(--cyan);margin-left:auto}
 
-/* ── Progress bar ── */
+/* ── Progress ── */
 .progress-bar-wrap{display:flex;align-items:center;gap:10px}
 .progress-track{flex:1;height:5px;background:rgba(255,255,255,.05);border-radius:5px;overflow:hidden}
-.progress-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--violet));border-radius:5px;width:0%;transition:width .25s}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--cyan),var(--violet));border-radius:5px;width:0%;transition:width .2s}
 .progress-text{font-family:var(--font-mono);font-size:11px;color:var(--muted);white-space:nowrap}
 
-/* ── Main 2-col layout ── */
+/* ── Main grid ── */
 .main{display:grid;grid-template-columns:1fr 300px;gap:14px;flex:1;align-items:start}
+.stage{display:flex;flex-direction:column;gap:12px}
 
-/* ── Stage ── */
-.stage{display:flex;flex-direction:column;gap:14px}
-
-/* ── Disk / RAM zones ── */
-.zone{border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px}
+/* ── Zones ── */
+.zone{border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;transition:box-shadow .4s}
 .zone-disk{background:var(--disk-bg);border:1px dashed var(--disk-border)}
 .zone-ram{background:var(--ram-bg);border:1px solid var(--ram-border)}
-.zone-header{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.zone-disk.pulse{box-shadow:0 0 0 2px rgba(30,64,128,.5),0 0 20px rgba(30,64,128,.2)}
+.zone-ram.pulse{box-shadow:0 0 0 2px rgba(91,33,182,.5),0 0 20px rgba(91,33,182,.2)}
+.zone-header{display:flex;align-items:center;gap:8px}
 .zone-icon{font-size:14px}
 .zone-title{font-family:var(--font-mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.12em}
-.zone-disk .zone-title{color:var(--disk-border)}
-.zone-ram .zone-title{color:var(--ram-border)}
+.zone-disk .zone-title{color:#4a7abf}
+.zone-ram  .zone-title{color:#9b6fd4}
 .zone-desc{font-size:11px;color:var(--muted);margin-left:auto}
+.section-label{font-family:var(--font-mono);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;padding:3px 0;border-bottom:1px solid var(--border)}
 
-/* ── Transfer arrow between zones ── */
-.transfer-arrow{display:flex;align-items:center;justify-content:center;gap:8px;padding:4px 0}
-.transfer-arrow-line{flex:1;height:1px;background:linear-gradient(90deg,var(--disk-border),var(--ram-border))}
-.transfer-arrow-label{font-family:var(--font-mono);font-size:10px;color:var(--muted);white-space:nowrap;padding:3px 10px;border-radius:10px;background:var(--card);border:1px solid var(--border)}
-.transfer-arrow-label.active{color:var(--yellow);border-color:var(--yellow);background:rgba(253,224,71,.05);animation:pulse-border 1s ease-in-out infinite}
-@keyframes pulse-border{0%,100%{box-shadow:0 0 0 0 rgba(253,224,71,.3)}50%{box-shadow:0 0 0 4px rgba(253,224,71,.1)}}
+/* ── Transfer arrow ── */
+.transfer-arrow{display:flex;align-items:center;gap:8px;padding:2px 0}
+.ta-line{flex:1;height:1px;background:linear-gradient(90deg,var(--disk-border),var(--ram-border))}
+.ta-label{font-family:var(--font-mono);font-size:10px;color:var(--muted);white-space:nowrap;padding:3px 10px;border-radius:10px;background:var(--card);border:1px solid var(--border);transition:color .2s,border-color .2s,background .2s}
+.ta-label.active{color:var(--yellow);border-color:rgba(253,224,71,.4);background:rgba(253,224,71,.05);animation:ta-pulse 1.2s ease-in-out 3}
+@keyframes ta-pulse{0%,100%{box-shadow:none}50%{box-shadow:0 0 8px rgba(253,224,71,.3)}}
 
-/* ── Run cards (disk) ── */
+/* ── Run cards ── */
 .runs-row{display:flex;gap:10px;flex-wrap:wrap}
-.run-card{background:#0a1825;border:1px solid rgba(30,64,128,.4);border-radius:10px;padding:10px 12px;min-width:150px;max-width:220px;transition:border-color .25s,background .25s}
-.run-card.reading{border-color:var(--yellow);background:rgba(253,224,71,.04)}
-.run-card.sorted{border-color:rgba(34,211,160,.5);background:rgba(34,211,160,.03)}
-.run-card.exhausted{opacity:.4;border-color:var(--border)}
-.run-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-.run-card-title{font-family:var(--font-mono);font-size:10px;color:var(--muted)}
-.run-card-count{font-family:var(--font-mono);font-size:9px;color:var(--muted);opacity:.7}
-.run-card-status{font-size:9px;font-family:var(--font-mono);padding:1px 6px;border-radius:8px}
-.status-unsorted{background:rgba(245,158,11,.15);color:var(--orange);border:1px solid rgba(245,158,11,.2)}
-.status-sorted{background:rgba(34,211,160,.15);color:var(--green);border:1px solid rgba(34,211,160,.2)}
-.status-reading{background:rgba(253,224,71,.15);color:var(--yellow);border:1px solid rgba(253,224,71,.2)}
-.status-done{background:rgba(90,112,144,.15);color:var(--muted);border:1px solid rgba(90,112,144,.2)}
+.run-card{background:#0a1825;border:1px solid rgba(30,64,128,.35);border-radius:10px;padding:10px 12px;min-width:148px;max-width:210px;transition:border-color .25s,background .25s,opacity .3s}
+.run-card.rc-reading{border-color:var(--yellow);background:rgba(253,224,71,.04)}
+.run-card.rc-sorted {border-color:rgba(34,211,160,.45);background:rgba(34,211,160,.02)}
+.run-card.rc-done   {opacity:.35}
+.rc-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.rc-title{font-family:var(--font-mono);font-size:10px;color:var(--muted)}
+.rc-badge{font-size:9px;font-family:var(--font-mono);padding:1px 6px;border-radius:8px}
+.rcb-unsorted{background:rgba(245,158,11,.15);color:var(--orange);border:1px solid rgba(245,158,11,.2)}
+.rcb-sorted  {background:rgba(34,211,160,.15);color:var(--green);border:1px solid rgba(34,211,160,.2)}
+.rcb-reading {background:rgba(253,224,71,.15);color:var(--yellow);border:1px solid rgba(253,224,71,.2)}
+.rcb-done    {background:rgba(90,112,144,.1);color:var(--muted);border:1px solid rgba(90,112,144,.2)}
+.rc-nums{font-family:var(--font-mono);font-size:10px;line-height:1.65;min-height:16px;color:#3d7a96;word-break:break-all}
+.rc-nums .n-hi  {color:var(--yellow);font-weight:700}
+.rc-nums .n-sort{color:var(--green)}
+.rc-nums .n-dim {opacity:.35}
+.rc-prog{height:2px;background:rgba(255,255,255,.04);border-radius:2px;margin-top:5px;overflow:hidden}
+.rc-prog-fill{height:100%;background:linear-gradient(90deg,var(--yellow),var(--orange));border-radius:2px;width:0%;transition:width .35s}
 
-/* Numbers display in run card */
-.run-numbers{font-family:var(--font-mono);font-size:10px;color:#4a8fa8;line-height:1.6;min-height:18px;word-break:break-all}
-.run-numbers .num-highlight{color:var(--yellow);font-weight:700}
-.run-numbers .num-sorted{color:var(--green)}
-.run-read-progress{height:3px;background:rgba(255,255,255,.05);border-radius:3px;margin-top:6px;overflow:hidden}
-.run-read-fill{height:100%;background:linear-gradient(90deg,var(--yellow),var(--orange));border-radius:3px;width:0%;transition:width .4s}
-
-/* ── Buffer cards (RAM) ── */
-.buffer-card{background:#0e0820;border:1px solid rgba(91,33,182,.4);border-radius:10px;padding:10px 12px;min-width:150px;max-width:220px;transition:border-color .25s}
-.buffer-card.active{border-color:var(--violet)}
-.buffer-card.empty{opacity:.5}
-.buffer-card-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
-.buffer-card-title{font-family:var(--font-mono);font-size:10px;color:#8b6fd4}
-.buffer-numbers{font-family:var(--font-mono);font-size:10px;color:#9d7eed;line-height:1.6;min-height:18px;word-break:break-all}
-.buffer-numbers .buf-top{color:var(--violet);font-weight:700;font-size:11px}
-.buffer-refill-label{font-size:9px;color:var(--yellow);font-family:var(--font-mono);margin-top:4px;display:none}
-.buffer-refill-label.show{display:block;animation:blink .6s steps(1) infinite}
+/* ── Buffer cards ── */
+.buffer-card{background:#0d061e;border:1px solid rgba(91,33,182,.35);border-radius:10px;padding:10px 12px;min-width:148px;max-width:210px;transition:border-color .25s,background .25s}
+.buffer-card.bc-active  {border-color:rgba(139,92,246,.7);background:rgba(139,92,246,.04)}
+.buffer-card.bc-refill  {border-color:var(--yellow);background:rgba(253,224,71,.03);animation:refill-pulse .8s ease-in-out 3}
+.buffer-card.bc-empty   {opacity:.45}
+@keyframes refill-pulse{0%,100%{box-shadow:none}50%{box-shadow:0 0 10px rgba(253,224,71,.25)}}
+.bc-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.bc-title{font-family:var(--font-mono);font-size:10px;color:#9070cc}
+.bc-from {font-size:9px;color:var(--muted);font-family:var(--font-mono)}
+.bc-nums {font-family:var(--font-mono);font-size:10px;line-height:1.65;min-height:16px;word-break:break-all}
+/* each number in buffer is a span with a data-pos attribute */
+.bc-nums .bn{color:#9d7eed;transition:opacity .25s,color .25s}
+.bc-nums .bn.bn-top {color:var(--violet);font-weight:700;font-size:11px}
+.bc-nums .bn.bn-used{opacity:.2;color:var(--muted)}
+.bc-refill-msg{font-size:9px;color:var(--yellow);font-family:var(--font-mono);margin-top:4px;display:none}
+.bc-refill-msg.show{display:block;animation:blink .55s steps(1) infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* ── Heap (RAM) ── */
-.heap-wrap{background:rgba(0,0,0,.2);border:1px solid rgba(91,33,182,.25);border-radius:10px;padding:12px}
-.heap-title{font-family:var(--font-mono);font-size:10px;color:#8b6fd4;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
-.heap-nodes{display:flex;gap:6px;flex-wrap:wrap;min-height:40px;align-items:center}
+/* ── Heap tree ── */
+.heap-wrap{background:rgba(0,0,0,.25);border:1px solid rgba(91,33,182,.2);border-radius:10px;padding:14px}
+.heap-tree-title{font-family:var(--font-mono);font-size:10px;color:#9070cc;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
+.heap-count{font-size:9px;color:var(--muted)}
+/* tree rendered as rows */
+.heap-tree{display:flex;flex-direction:column;gap:6px;align-items:center}
+.heap-level{display:flex;gap:8px;justify-content:center;align-items:center}
 .heap-node{
-  font-family:var(--font-mono);font-size:11px;padding:5px 9px;border-radius:6px;
-  background:linear-gradient(135deg,rgba(139,92,246,.2),rgba(244,63,94,.15));
+  font-family:var(--font-mono);font-size:11px;padding:5px 10px;border-radius:6px;
+  background:linear-gradient(135deg,rgba(139,92,246,.2),rgba(244,63,94,.12));
   border:1px solid rgba(139,92,246,.3);color:#c4b5fd;
-  opacity:0;transform:translateY(6px);transition:opacity .2s,transform .2s,border-color .2s,background .2s
+  opacity:0;transform:translateY(5px);
+  transition:opacity .2s,transform .2s,background .25s,border-color .25s,color .25s
 }
-.heap-node.visible{opacity:1;transform:translateY(0)}
-.heap-node.heap-min{background:linear-gradient(135deg,rgba(244,63,94,.3),rgba(245,158,11,.2));border-color:var(--red);color:#fff;font-weight:700}
-.heap-node.popping{opacity:0;transform:translateY(-12px) scale(.85);transition:opacity .18s,transform .18s}
-.heap-label{font-size:9px;font-family:var(--font-mono);color:var(--muted);margin-top:6px}
+.heap-node.hn-visible{opacity:1;transform:translateY(0)}
+.heap-node.hn-min{
+  background:linear-gradient(135deg,rgba(244,63,94,.35),rgba(245,158,11,.25));
+  border-color:var(--red);color:#fff;font-weight:700;
+  animation:hn-pulse .8s ease-in-out infinite
+}
+@keyframes hn-pulse{0%,100%{box-shadow:0 0 0 0 rgba(244,63,94,.3)}50%{box-shadow:0 0 0 5px rgba(244,63,94,.1)}}
+.heap-node.hn-pop{opacity:0;transform:translateY(-14px) scale(.8);transition:opacity .18s,transform .18s}
+.heap-connector{width:1px;height:10px;background:rgba(139,92,246,.2);margin:0 auto}
+.heap-label{font-size:9px;font-family:var(--font-mono);color:var(--muted);margin-top:8px;text-align:center}
 
-/* ── Output (disk) ── */
-.output-wrap{background:#06111f;border:1px dashed rgba(34,211,160,.3);border-radius:10px;padding:12px}
-.output-title{font-family:var(--font-mono);font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
-.output-count{color:var(--muted);font-size:9px}
-.output-numbers{font-family:var(--font-mono);font-size:10px;color:rgba(34,211,160,.7);line-height:1.7;min-height:28px;max-height:60px;overflow:hidden;word-break:break-all}
-.output-numbers .out-latest{color:var(--green);font-weight:700}
+/* ── Output ── */
+.output-wrap{background:var(--disk-bg);border:1px dashed rgba(34,211,160,.28);border-radius:10px;padding:12px}
+.out-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.out-title{font-family:var(--font-mono);font-size:10px;color:var(--green);text-transform:uppercase;letter-spacing:.1em}
+.out-count{font-size:9px;font-family:var(--font-mono);color:var(--muted)}
+.out-stream{font-family:var(--font-mono);font-size:10px;line-height:1.8;min-height:24px;max-height:56px;overflow:hidden;word-break:break-all}
+.out-num{color:rgba(34,211,160,.6);transition:color .4s}
+.out-num.on-new{color:var(--green);font-weight:700}
 
 /* ── Flying token ── */
-.flying-token{
+.fly-token{
   position:fixed;z-index:9999;pointer-events:none;
   font-family:var(--font-mono);font-size:11px;font-weight:700;
-  padding:4px 8px;border-radius:6px;
+  padding:4px 9px;border-radius:6px;
   background:var(--yellow);color:#000;
-  box-shadow:0 0 12px rgba(253,224,71,.6);
-  transition:none;will-change:transform,opacity
+  box-shadow:0 0 14px rgba(253,224,71,.7);
 }
-
-/* ── Merge section ── */
-.merge-section{display:flex;flex-direction:column;gap:10px}
-.merge-section-title{font-family:var(--font-mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;padding:4px 0;border-bottom:1px solid var(--border)}
 
 /* ── Sidebar ── */
 .sidebar{display:flex;flex-direction:column;gap:12px;position:sticky;top:20px}
@@ -157,58 +188,60 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .card-title{font-family:var(--font-mono);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
 
 /* File info */
-.file-info-block{display:flex;flex-direction:column;gap:6px}
-.fi-row{display:flex;justify-content:space-between;align-items:center;font-size:12px}
-.fi-label{color:var(--muted)}
-.fi-val{font-family:var(--font-mono);font-size:11px;color:var(--text)}
-.fi-val.accent{color:var(--cyan)}
+.fi-block{display:flex;flex-direction:column;gap:5px}
+.fi-row{display:flex;justify-content:space-between;font-size:12px}
+.fi-l{color:var(--muted)}
+.fi-v{font-family:var(--font-mono);font-size:11px;color:var(--text)}
+.fi-v.ac{color:var(--cyan)}
 
 /* Stats */
 .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .stat-box{background:var(--card);border-radius:8px;padding:9px 11px}
 .stat-label{font-size:10px;color:var(--muted);margin-bottom:3px}
-.stat-val{font-family:var(--font-mono);font-size:17px;font-weight:700}
+.stat-val{font-family:var(--font-mono);font-size:16px;font-weight:700}
 .stat-val.cyan{color:var(--cyan)}
 .stat-val.violet{color:var(--violet)}
 .stat-val.green{color:var(--green)}
 .stat-hint{font-size:9px;color:var(--muted);margin-top:2px}
 
 /* Controls */
-.ctrl-row{display:flex;gap:7px;flex-wrap:wrap}
+.ctrl-row{display:flex;gap:6px;flex-wrap:wrap}
 .speed-row{display:flex;align-items:center;gap:8px;margin-top:8px}
 .speed-row label{font-size:11px;color:var(--muted);font-family:var(--font-mono);white-space:nowrap}
 input[type=range]{flex:1;-webkit-appearance:none;height:4px;background:rgba(255,255,255,.08);border-radius:4px;outline:none}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--cyan);cursor:pointer}
 .hints{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
 .hint{font-size:10px;color:var(--muted)}
-.hint kbd{font-family:var(--font-mono);background:var(--card);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:9px;color:var(--text)}
+.hint kbd{font-family:var(--font-mono);background:var(--card);border:1px solid var(--border);border-radius:3px;padding:1px 5px;font-size:9px}
+
+/* History indicator */
+.history-badge{font-family:var(--font-mono);font-size:10px;color:var(--muted);margin-top:6px}
+.history-badge span{color:var(--orange)}
 
 /* Log */
-.log-list{font-family:var(--font-mono);font-size:10px;color:var(--muted);display:flex;flex-direction:column;gap:3px;max-height:200px;overflow-y:auto}
+.log-list{font-family:var(--font-mono);font-size:10px;color:var(--muted);display:flex;flex-direction:column;gap:3px;max-height:220px;overflow-y:auto}
 .log-list::-webkit-scrollbar{width:3px}
 .log-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 .log-row{display:flex;gap:6px;line-height:1.5}
-.log-t{opacity:.4;flex-shrink:0}
+.log-t{opacity:.35;flex-shrink:0}
 .log-row.info .log-m{color:var(--cyan)}
 .log-row.ok   .log-m{color:var(--green)}
 .log-row.warn .log-m{color:var(--orange)}
-.log-row.disk .log-m{color:#4a8fa8}
-.log-row.ram  .log-m{color:#9d7eed}
+.log-row.disk .log-m{color:#3d7a96}
+.log-row.ram  .log-m{color:#9070cc}
+.log-row.back .log-m{color:var(--orange)}
 
 /* Empty state */
 .empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:60px 20px;opacity:.3}
 .empty-state p{font-size:13px;color:var(--muted);font-family:var(--font-mono)}
 
-@media(max-width:900px){
-  .main{grid-template-columns:1fr}
-  .sidebar{position:static}
-}
+@media(max-width:900px){.main{grid-template-columns:1fr}.sidebar{position:static}}
 </style>
 </head>
 <body>
 <div class="app">
 
-<!-- ── HEADER ── -->
+<!-- HEADER -->
 <header>
   <div class="brand">
     <span class="brand-title">ext_merge_sort</span>
@@ -227,7 +260,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
   </div>
 </header>
 
-<!-- ── INFO BAR ── -->
+<!-- SAMPLING MODE BANNER -->
+<div class="sampling-banner" id="samplingBanner">
+  <span class="sb-icon">🔬</span>
+  <div>
+    <div class="sb-title">Chế độ mô phỏng mẫu (Sampling Mode)</div>
+    <div class="sb-desc">Visualization chạy trên <strong id="sbSimN">300</strong> số mẫu — thuật toán thật đang sort toàn bộ file ở background</div>
+  </div>
+  <div class="sb-pills">
+    <span class="sb-pill real">File gốc: <span id="sbRealN">—</span> số</span>
+    <span class="sb-pill sim">Mô phỏng: N=<span id="sbSimNPill">—</span></span>
+  </div>
+</div>
+
+<!-- INFO BAR -->
 <div class="info-bar" id="infoBar" style="display:none">
   <div class="info-pill cyan">k-way <span id="statK">—</span></div>
   <div class="info-pill violet">block_size <span id="statB">—</span></div>
@@ -237,16 +283,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
   <div class="phase-badge" id="phaseBadge">Chờ upload...</div>
 </div>
 
-<!-- ── PROGRESS ── -->
+<!-- PROGRESS -->
 <div class="progress-bar-wrap" id="progressWrap" style="display:none">
   <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
   <span class="progress-text" id="progressText">0 / 0</span>
 </div>
 
-<!-- ── MAIN ── -->
+<!-- MAIN -->
 <div class="main">
 
-  <!-- STAGE -->
   <div class="stage" id="stage">
     <div class="empty-state" id="emptyState">
       <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
@@ -254,30 +299,28 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
       </svg>
       <p>Upload file .bin để bắt đầu</p>
     </div>
-    <div id="stageContent" style="display:none;flex-direction:column;gap:14px"></div>
+    <div id="stageContent" style="display:none;flex-direction:column;gap:12px"></div>
   </div>
 
-  <!-- SIDEBAR -->
   <div class="sidebar">
 
-    <!-- File info -->
     <div class="card" id="fileCard" style="display:none">
       <div class="card-title">📁 Thông tin File</div>
-      <div class="file-info-block">
-        <div class="fi-row"><span class="fi-label">Tên file</span><span class="fi-val accent" id="fiName">—</span></div>
-        <div class="fi-row"><span class="fi-label">Kích thước</span><span class="fi-val" id="fiSize">—</span></div>
-        <div class="fi-row"><span class="fi-label">Tổng số phần tử</span><span class="fi-val" id="fiCount">—</span></div>
+      <div class="fi-block">
+        <div class="fi-row"><span class="fi-l">Tên file</span><span class="fi-v ac" id="fiName">—</span></div>
+        <div class="fi-row"><span class="fi-l">Kích thước</span><span class="fi-v" id="fiSize">—</span></div>
+        <div class="fi-row"><span class="fi-l">Tổng phần tử</span><span class="fi-v" id="fiCount">—</span></div>
+        <div class="fi-row"><span class="fi-l">Mô phỏng</span><span class="fi-v" style="color:var(--yellow)" id="fiSim">—</span></div>
       </div>
     </div>
 
-    <!-- Params -->
     <div class="card" id="paramsCard" style="display:none">
       <div class="card-title">⚙️ Tham số thuật toán</div>
       <div class="stats-grid">
         <div class="stat-box">
           <div class="stat-label">k-way merge</div>
           <div class="stat-val cyan" id="sk">—</div>
-          <div class="stat-hint">merge k run cùng lúc</div>
+          <div class="stat-hint">merge k runs/lúc</div>
         </div>
         <div class="stat-box">
           <div class="stat-label">block_size</div>
@@ -290,20 +333,20 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
           <div class="stat-hint">runs ban đầu</div>
         </div>
         <div class="stat-box">
-          <div class="stat-label">RAM tối đa</div>
-          <div class="stat-val" id="sram" style="font-size:13px">—</div>
-          <div class="stat-hint">k × buffer + heap</div>
+          <div class="stat-label">RAM dùng</div>
+          <div class="stat-val" id="sram" style="font-size:12px">—</div>
+          <div class="stat-hint">k×block + heap</div>
         </div>
       </div>
     </div>
 
-    <!-- Controls -->
     <div class="card">
       <div class="card-title">🎮 Điều khiển</div>
       <div class="ctrl-row">
         <button class="btn btn-ghost" id="startBtn" disabled>▶ Start</button>
         <button class="btn btn-ghost" id="pauseBtn" disabled>⏸ Pause</button>
-        <button class="btn btn-ghost" id="stepBtn" disabled>⏭ Step</button>
+        <button class="btn btn-ghost" id="stepBtn"  disabled>⏭ Step</button>
+        <button class="btn btn-back"  id="backBtn"  disabled>← Back</button>
       </div>
       <div class="speed-row">
         <label>Speed</label>
@@ -313,93 +356,169 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
       <div class="hints">
         <span class="hint"><kbd>Space</kbd> pause</span>
         <span class="hint"><kbd>→</kbd> step</span>
+        <span class="hint"><kbd>←</kbd> back</span>
+      </div>
+      <div class="history-badge" id="historyBadge" style="display:none">
+        Lịch sử: <span id="historyCount">0</span> bước đã lưu
       </div>
     </div>
 
-    <!-- Event Log -->
     <div class="card" style="flex:1">
       <div class="card-title">📋 Event Log</div>
       <div class="log-list" id="logList"></div>
     </div>
 
-  </div><!-- /sidebar -->
-</div><!-- /main -->
+  </div>
+</div>
 </div><!-- /app -->
 
 <script>
-// ── DOM refs ──────────────────────────────────────────────────
-const fileInput    = document.getElementById('fileInput');
-const fileNameDisp = document.getElementById('fileNameDisplay');
-const uploadBtn    = document.getElementById('uploadBtn');
-const downloadBtn  = document.getElementById('downloadBtn');
-const spinner      = document.getElementById('spinner');
-const infoBar      = document.getElementById('infoBar');
-const progressWrap = document.getElementById('progressWrap');
-const progressFill = document.getElementById('progressFill');
-const progressText = document.getElementById('progressText');
-const phaseBadge   = document.getElementById('phaseBadge');
-const emptyState   = document.getElementById('emptyState');
-const stageContent = document.getElementById('stageContent');
-const fileCard     = document.getElementById('fileCard');
-const paramsCard   = document.getElementById('paramsCard');
-const startBtn     = document.getElementById('startBtn');
-const pauseBtn     = document.getElementById('pauseBtn');
-const stepBtn      = document.getElementById('stepBtn');
-const speedInput   = document.getElementById('speedInput');
-const speedLabel   = document.getElementById('speedLabel');
-const logList      = document.getElementById('logList');
+// ════════════════════════════════════════════════════════════
+//  DOM REFS
+// ════════════════════════════════════════════════════════════
+const fileInput      = document.getElementById('fileInput');
+const fileNameDisp   = document.getElementById('fileNameDisplay');
+const uploadBtn      = document.getElementById('uploadBtn');
+const downloadBtn    = document.getElementById('downloadBtn');
+const spinner        = document.getElementById('spinner');
+const samplingBanner = document.getElementById('samplingBanner');
+const sbSimN         = document.getElementById('sbSimN');
+const sbRealN        = document.getElementById('sbRealN');
+const sbSimNPill     = document.getElementById('sbSimNPill');
+const infoBar        = document.getElementById('infoBar');
+const progressWrap   = document.getElementById('progressWrap');
+const progressFill   = document.getElementById('progressFill');
+const progressText   = document.getElementById('progressText');
+const phaseBadge     = document.getElementById('phaseBadge');
+const emptyState     = document.getElementById('emptyState');
+const stageContent   = document.getElementById('stageContent');
+const fileCard       = document.getElementById('fileCard');
+const paramsCard     = document.getElementById('paramsCard');
+const startBtn       = document.getElementById('startBtn');
+const pauseBtn       = document.getElementById('pauseBtn');
+const stepBtn        = document.getElementById('stepBtn');
+const backBtn        = document.getElementById('backBtn');
+const speedInput     = document.getElementById('speedInput');
+const speedLabel     = document.getElementById('speedLabel');
+const logList        = document.getElementById('logList');
+const historyBadge   = document.getElementById('historyBadge');
+const historyCount   = document.getElementById('historyCount');
 
-// sidebar stat els
 const statK    = document.getElementById('statK');
 const statB    = document.getElementById('statB');
 const statRuns = document.getElementById('statRuns');
-const statSample= document.getElementById('statSample');
+const statSample = document.getElementById('statSample');
 const statFile = document.getElementById('statFile');
 const sk = document.getElementById('sk');
 const sb = document.getElementById('sb');
 const sr = document.getElementById('sr');
 const sram = document.getElementById('sram');
-const fiName = document.getElementById('fiName');
-const fiSize = document.getElementById('fiSize');
+const fiName  = document.getElementById('fiName');
+const fiSize  = document.getElementById('fiSize');
 const fiCount = document.getElementById('fiCount');
+const fiSim   = document.getElementById('fiSim');
 
-// ── State ─────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+//  STATE MANAGEMENT
+// ════════════════════════════════════════════════════════════
 let steps = [], idx = 0, paused = true, speed = 1, totalSteps = 0, jobId = null;
 let currentPassId = null, currentGroupId = null;
-// track run data for display
-const runData   = {};   // runIdx → {nums, count, readPos}
-const bufData   = {};   // bufIdx → {nums}
-let outputCount = 0;
-let outputNumsEl = null;
-let heapNodesEl  = null;
-let transferArrowEl = null;
+let animating = false;  // block rapid clicks during fly animation
 
-// ── Logging ───────────────────────────────────────────────────
-function log(msg, type=''){
+// ── History Stack ──
+// Each entry = full snapshot of the visual state at that step
+const history = [];       // pastStates
+const MAX_HISTORY = 200;  // cap to avoid huge memory
+
+// ── Live visual state (mirrored for snapshot) ──
+// These objects are what we snapshot
+let VS = createEmptyVS();
+
+function createEmptyVS(){
+  return {
+    idx: 0,
+    phaseBadgeText: 'Chờ upload...',
+    // run cards: runIdx → {nums, state, count}
+    runs: {},
+    // buffer cards: `${passId}-${groupId}-${bufIdx}` → {nums, usedCount}
+    bufs: {},
+    // heap: array of {value, src}
+    heap: [],
+    // output: array of numbers (last 60)
+    output: [],
+    outputCount: 0,
+    // log entries: array of {msg, type}
+    logEntries: [],
+    // current merge context
+    passId: null,
+    groupId: null,
+    // dom structure flags
+    mergeZones: [],  // [{passId, groupId, inputs}]
+    transferMsg: '',
+  };
+}
+
+function snapshotVS(){
+  // Deep clone of VS
+  return JSON.parse(JSON.stringify(VS));
+}
+
+function pushHistory(){
+  history.push(snapshotVS());
+  if(history.length > MAX_HISTORY) history.shift();
+  updateHistoryBadge();
+}
+
+function updateHistoryBadge(){
+  historyBadge.style.display = history.length ? 'block' : 'none';
+  historyCount.textContent = history.length;
+  backBtn.disabled = history.length === 0;
+}
+
+// ════════════════════════════════════════════════════════════
+//  LOGGING
+// ════════════════════════════════════════════════════════════
+function log(msg, type='', skipVS=false){
   const row = document.createElement('div');
   row.className = 'log-row' + (type ? ' '+type : '');
   const t = new Date().toLocaleTimeString('vi',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
   row.innerHTML = `<span class="log-t">${t}</span><span class="log-m">${msg}</span>`;
   logList.prepend(row);
-  while(logList.children.length > 100) logList.removeChild(logList.lastChild);
+  while(logList.children.length > 120) logList.removeChild(logList.lastChild);
+  if(!skipVS){
+    VS.logEntries.unshift({msg, type, t});
+    if(VS.logEntries.length > 120) VS.logEntries.pop();
+  }
 }
 
-// ── Progress ──────────────────────────────────────────────────
+function rebuildLogFromVS(entries){
+  logList.innerHTML = '';
+  entries.forEach(e => {
+    const row = document.createElement('div');
+    row.className = 'log-row' + (e.type ? ' '+e.type : '');
+    row.innerHTML = `<span class="log-t">${e.t}</span><span class="log-m">${e.msg}</span>`;
+    logList.appendChild(row);
+  });
+}
+
+// ════════════════════════════════════════════════════════════
+//  PROGRESS
+// ════════════════════════════════════════════════════════════
 function updateProgress(){
-  const pct = totalSteps ? Math.round(idx/totalSteps*100) : 0;
+  const pct = totalSteps ? Math.round(VS.idx/totalSteps*100) : 0;
   progressFill.style.width = pct + '%';
-  progressText.textContent = `${idx} / ${totalSteps}`;
+  progressText.textContent = `${VS.idx} / ${totalSteps}`;
+  phaseBadge.textContent = VS.phaseBadgeText;
 }
 
-// ── Number formatting ─────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+//  FORMATTING
+// ════════════════════════════════════════════════════════════
 function fmt(v){ return Number(v).toFixed(1); }
-function fmtNums(arr, max=5){
-  if(!arr||!arr.length) return '<span style="opacity:.4">trống</span>';
-  const shown = arr.slice(0, max).map(v => fmt(v));
-  return shown.join('  ') + (arr.length > max ? `  <span style="opacity:.5">+${arr.length-max}...</span>` : '');
-}
 
-// ── File picker ───────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+//  FILE PICKER
+// ════════════════════════════════════════════════════════════
 fileInput.onchange = () => {
   const f = fileInput.files[0];
   if(!f) return;
@@ -407,7 +526,9 @@ fileInput.onchange = () => {
   uploadBtn.disabled = false;
 };
 
-// ── Upload ────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+//  UPLOAD
+// ════════════════════════════════════════════════════════════
 uploadBtn.onclick = async () => {
   const f = fileInput.files[0];
   if(!f){ alert('Chọn file .bin trước'); return; }
@@ -435,21 +556,29 @@ uploadBtn.onclick = async () => {
     return;
   }
 
-  if(vizData.job_id){
-    jobId = vizData.job_id;
-    pollForDownload(jobId);
-  }
+  if(vizData.job_id){ jobId = vizData.job_id; pollForDownload(jobId); }
 
   steps      = vizData.steps || [];
   totalSteps = steps.length;
   idx        = 0;
+  history.length = 0;
+  VS         = createEmptyVS();
   resetStage();
 
-  // Fill info bar
   const meta   = vizData.meta || steps.find(s=>s.type==='meta');
   const params = steps.find(s=>s.type==='params_chosen');
+
+  const simN  = params?.visualize_sample_size ?? meta?.runs_count ?? 300;
+  const realN = params?.original_file_size ? Math.floor(params.original_file_size/8) : null;
+
+  // Sampling banner
+  sbSimN.textContent    = simN;
+  sbSimNPill.textContent= simN;
+  sbRealN.textContent   = realN ? realN.toLocaleString() : '—';
+  samplingBanner.classList.add('show');
+
   if(meta){
-    statK.textContent    = meta.k ?? '—';
+    statK.textContent    = meta.k    ?? '—';
     statB.textContent    = meta.block_size ?? '—';
     statRuns.textContent = meta.runs_count ?? '—';
     sk.textContent = meta.k ?? '—';
@@ -457,349 +586,463 @@ uploadBtn.onclick = async () => {
     sr.textContent = meta.runs_count ?? '—';
   }
   if(params){
-    statSample.textContent = params.visualize_sample_size ?? '—';
-    const k = meta?.k ?? params.k ?? 4;
+    statSample.textContent = simN;
+    const k  = meta?.k ?? params.k ?? 4;
     const bs = meta?.block_size ?? params.block_size ?? 0;
-    sram.textContent = `≤ ${k * bs + k} số`;
+    sram.textContent = `≤ ${k*bs+k} số`;
     if(params.original_file_size){
       const mb = (params.original_file_size/1024/1024).toFixed(2);
-      statFile.textContent = mb + ' MB';
-      fiSize.textContent   = mb + ' MB';
-      fiCount.textContent  = Math.floor(params.original_file_size/8).toLocaleString() + ' số';
+      statFile.textContent = mb+' MB';
+      fiSize.textContent   = mb+' MB';
+      fiCount.textContent  = Math.floor(params.original_file_size/8).toLocaleString()+' số';
     }
   }
   fiName.textContent = f.name;
+  fiSim.textContent  = `${simN} số mẫu`;
   infoBar.style.display      = 'flex';
   progressWrap.style.display = 'flex';
   fileCard.style.display     = 'block';
   paramsCard.style.display   = 'block';
 
   spinner.classList.remove('active');
-  phaseBadge.textContent = 'Sẵn sàng';
-  log(`Nhận ${steps.length} steps — nhấn Start để xem`, 'ok');
+  VS.phaseBadgeText = 'Sẵn sàng';
   updateProgress();
+  log(`Nhận ${steps.length} steps — nhấn Start để xem`, 'ok');
   startBtn.disabled = false;
   stepBtn.disabled  = false;
+  updateHistoryBadge();
 };
 
-// ── Poll download ─────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+//  POLL DOWNLOAD
+// ════════════════════════════════════════════════════════════
 async function pollForDownload(jid){
   const setBtn = (label, ready) => {
-    downloadBtn.textContent = label;
-    downloadBtn.style.display = 'inline-flex';
+    downloadBtn.textContent  = label;
+    downloadBtn.style.display  = 'inline-flex';
     downloadBtn.style.opacity  = ready ? '1' : '0.5';
     downloadBtn.style.cursor   = ready ? 'pointer' : 'default';
-    downloadBtn.onclick = ready ? () => window.location=`/download/${jid}` : null;
+    downloadBtn.onclick = ready ? ()=>window.location=`/download/${jid}` : null;
   };
   setBtn('⏳ Đang sort...', false);
   const poll = async () => {
     try{
       const r = await fetch(`/status/${jid}`);
-      if(!r.ok){ setTimeout(poll, 2000); return; }
+      if(!r.ok){ setTimeout(poll,2000); return; }
       const d = await r.json();
-      if(d.status === 'done'){ setBtn('↓ Download sorted', true); log('✓ Sort thật xong — sẵn sàng download', 'ok'); }
+      if(d.status==='done'){ setBtn('↓ Download sorted',true); log('✓ Sort thật xong — sẵn sàng download','ok'); }
       else if(d.status?.startsWith('error')){ downloadBtn.style.display='none'; log('Sort lỗi: '+d.status,'warn'); }
-      else{ setBtn(d.status==='processing'?'⏳ Sorting...':'⏳ Queued...', false); setTimeout(poll,1500); }
+      else{ setBtn(d.status==='processing'?'⏳ Sorting...':'⏳ Queued...',false); setTimeout(poll,1500); }
     } catch(e){ setTimeout(poll,3000); }
   };
   poll();
 }
 
-// ── Reset stage ───────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+//  RESET STAGE
+// ════════════════════════════════════════════════════════════
 function resetStage(){
   stageContent.innerHTML = '';
   stageContent.style.display = 'flex';
   emptyState.style.display   = 'none';
-  Object.keys(runData).forEach(k=>delete runData[k]);
-  Object.keys(bufData).forEach(k=>delete bufData[k]);
-  outputCount    = 0;
-  outputNumsEl   = null;
-  heapNodesEl    = null;
-  transferArrowEl= null;
-  currentPassId  = null;
-  currentGroupId = null;
 }
 
-// ── Build Phase 1 (Disk zone) ─────────────────────────────────
+// ════════════════════════════════════════════════════════════
+//  BUILD DOM — Phase 1 Disk Zone
+// ════════════════════════════════════════════════════════════
 function ensurePhase1(){
-  if(document.getElementById('zone-disk-ph1')) return;
-  const zone = document.createElement('div');
-  zone.className = 'zone zone-disk';
-  zone.id = 'zone-disk-ph1';
-  zone.innerHTML = `
+  if(document.getElementById('zone-ph1')) return;
+  const z = document.createElement('div');
+  z.className = 'zone zone-disk'; z.id = 'zone-ph1';
+  z.innerHTML = `
     <div class="zone-header">
       <span class="zone-icon">💾</span>
       <span class="zone-title">Disk — Bộ nhớ ngoài</span>
-      <span class="zone-desc">Dữ liệu quá lớn để giữ trong RAM</span>
+      <span class="zone-desc">Dữ liệu quá lớn, không thể giữ trong RAM</span>
     </div>
-    <div class="merge-section-title">Phase 1 — Tạo Initial Runs</div>
+    <div class="section-label">Phase 1 — Tạo Initial Runs</div>
     <div class="runs-row" id="ph1-runs"></div>`;
-  stageContent.appendChild(zone);
+  stageContent.appendChild(z);
 }
 
 function getOrCreateRunCard(runIdx){
-  if(runData[runIdx]?.card) return runData[runIdx];
+  if(document.getElementById(`rc-${runIdx}`)) return document.getElementById(`rc-${runIdx}`);
   ensurePhase1();
-  const row  = document.getElementById('ph1-runs');
-  const card = document.createElement('div');
-  card.className = 'run-card';
-  card.id = `run-card-${runIdx}`;
-  card.innerHTML = `
-    <div class="run-card-header">
-      <span class="run-card-title">💾 Run ${runIdx}</span>
-      <span class="run-card-status status-unsorted" id="run-status-${runIdx}">chưa sort</span>
+  const row = document.getElementById('ph1-runs');
+  const el  = document.createElement('div');
+  el.className = 'run-card'; el.id = `rc-${runIdx}`;
+  el.innerHTML = `
+    <div class="rc-header">
+      <span class="rc-title" id="rc-t-${runIdx}">💾 Run ${runIdx}</span>
+      <span class="rc-badge rcb-unsorted" id="rc-b-${runIdx}">chưa sort</span>
     </div>
-    <div class="run-numbers" id="run-nums-${runIdx}">—</div>
-    <div class="run-read-progress"><div class="run-read-fill" id="run-fill-${runIdx}"></div></div>`;
-  row.appendChild(card);
-  runData[runIdx] = { card, numsEl: document.getElementById(`run-nums-${runIdx}`),
-                      statusEl: document.getElementById(`run-status-${runIdx}`),
-                      fillEl: document.getElementById(`run-fill-${runIdx}`),
-                      count: 0, readPct: 0 };
-  return runData[runIdx];
+    <div class="rc-nums" id="rc-n-${runIdx}">—</div>
+    <div class="rc-prog"><div class="rc-prog-fill" id="rc-f-${runIdx}"></div></div>`;
+  row.appendChild(el);
+  if(!VS.runs[runIdx]) VS.runs[runIdx] = {nums:[], state:'unsorted', count:0};
+  return el;
 }
 
-function updateRunCard(runIdx, nums, state, count){
-  const rc = getOrCreateRunCard(runIdx);
-  if(count !== undefined) rc.count = count;
+function renderRunCard(runIdx){
+  const data = VS.runs[runIdx];
+  if(!data) return;
+  const el  = getOrCreateRunCard(runIdx);
+  const numEl  = document.getElementById(`rc-n-${runIdx}`);
+  const badEl  = document.getElementById(`rc-b-${runIdx}`);
+  if(!numEl || !badEl) return;
 
-  // numbers display
-  if(nums && nums.length){
-    const displayed = nums.slice(0,6);
-    rc.numsEl.innerHTML = displayed.map((v,i)=>
-      `<span class="${i===0&&state==='reading'?'num-highlight':state==='sorted'?'num-sorted':''}">${fmt(v)}</span>`
-    ).join('  ') + (nums.length>6 ? `  <span style="opacity:.4">...</span>` : '');
-  }
+  el.className = 'run-card' + (data.state==='reading'?' rc-reading':data.state==='sorted'?' rc-sorted':data.state==='done'?' rc-done':'');
+  const badgeMap = {unsorted:['rcb-unsorted','chưa sort'],reading:['rcb-reading','📖 đọc vào RAM'],sorted:['rcb-sorted','✓ đã sort'],done:['rcb-done','✓ xong']};
+  const [cls,txt] = badgeMap[data.state] || badgeMap.unsorted;
+  badEl.className = 'rc-badge ' + cls;
+  badEl.textContent = txt;
 
-  // status badge
-  const statusMap = {
-    reading: ['status-reading','📖 đọc vào RAM'],
-    sorted:  ['status-sorted', '✓ đã sort'],
-    done:    ['status-done',   '✓ xong'],
-  };
-  if(statusMap[state]){
-    rc.statusEl.className = 'run-card-status '+statusMap[state][0];
-    rc.statusEl.textContent = statusMap[state][1];
-    rc.card.className = 'run-card ' + (state==='reading'?'reading':state==='sorted'?'sorted':'');
+  if(data.nums && data.nums.length){
+    const shown = data.nums.slice(0, 7);
+    numEl.innerHTML = shown.map((v,i)=>{
+      const cls = i===0 && data.state==='reading' ? 'n-hi' : data.state==='sorted' ? 'n-sort' : '';
+      return `<span class="${cls}">${fmt(v)}</span>`;
+    }).join('  ') + (data.nums.length>7 ? `  <span class="n-dim">+${data.nums.length-7}...</span>` : '');
+  } else {
+    numEl.innerHTML = '<span class="n-dim">—</span>';
   }
 }
 
-// ── Transfer arrow ────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+//  TRANSFER ARROW
+// ════════════════════════════════════════════════════════════
+let taLabelEl = null;
 function ensureTransferArrow(){
-  if(document.getElementById('transfer-arrow')) return;
-  const wrap = document.createElement('div');
-  wrap.className = 'transfer-arrow';
-  wrap.id = 'transfer-arrow';
-  wrap.innerHTML = `
-    <div class="transfer-arrow-line"></div>
-    <div class="transfer-arrow-label" id="transfer-label">💾 Disk → 🧠 RAM</div>
-    <div class="transfer-arrow-line"></div>`;
-  stageContent.appendChild(wrap);
-  transferArrowEl = document.getElementById('transfer-label');
+  if(document.getElementById('ta')) return;
+  const el = document.createElement('div');
+  el.className = 'transfer-arrow'; el.id = 'ta';
+  el.innerHTML = `
+    <div class="ta-line"></div>
+    <div class="ta-label" id="ta-label">💾 Disk → 🧠 RAM</div>
+    <div class="ta-line"></div>`;
+  stageContent.appendChild(el);
+  taLabelEl = document.getElementById('ta-label');
 }
-
 function flashTransfer(msg){
   ensureTransferArrow();
-  if(!transferArrowEl) return;
-  transferArrowEl.textContent = msg;
-  transferArrowEl.classList.add('active');
-  setTimeout(()=>transferArrowEl?.classList.remove('active'), 1200);
+  if(!taLabelEl) return;
+  taLabelEl.textContent = msg;
+  taLabelEl.classList.remove('active');
+  void taLabelEl.offsetWidth;
+  taLabelEl.classList.add('active');
+  VS.transferMsg = msg;
 }
 
-// ── Build Merge zone (RAM) ─────────────────────────────────────
-function ensureMergeZone(passId, groupId, inputNames){
-  const id = `merge-${passId}-${groupId}`;
-  if(document.getElementById(id)) return;
+// ════════════════════════════════════════════════════════════
+//  BUILD DOM — Merge Zone (RAM + Output)
+// ════════════════════════════════════════════════════════════
+let currentHeapEl = null;
+let currentOutEl  = null;
+let currentOutCountEl = null;
 
+function ensureMergeZone(passId, groupId, inputs){
+  const id = `mz-${passId}-${groupId}`;
+  if(document.getElementById(id)){
+    currentHeapEl    = document.getElementById(`${id}-heap`);
+    currentOutEl     = document.getElementById(`${id}-out`);
+    currentOutCountEl= document.getElementById(`${id}-out-cnt`);
+    return;
+  }
   ensureTransferArrow();
 
-  const zone = document.createElement('div');
-  zone.className = 'zone zone-ram';
-  zone.id = id;
-  zone.innerHTML = `
+  // RAM zone
+  const ramZone = document.createElement('div');
+  ramZone.className = 'zone zone-ram'; ramZone.id = id;
+  ramZone.innerHTML = `
     <div class="zone-header">
       <span class="zone-icon">🧠</span>
       <span class="zone-title">RAM — Bộ nhớ trong</span>
-      <span class="zone-desc">Lượt trộn ${passId}, nhóm ${groupId}</span>
+      <span class="zone-desc">Lượt trộn ${passId} · Nhóm ${groupId}</span>
     </div>
-    <div class="merge-section-title">Input Buffers (đọc từ Disk vào RAM)</div>
+    <div class="section-label">Input Buffers (đọc từng khối từ Disk)</div>
     <div class="runs-row" id="${id}-bufs"></div>
-    <div class="merge-section-title" style="margin-top:4px">Min-Heap (so sánh trong RAM)</div>
+    <div class="section-label" style="margin-top:4px">Min-Heap (so sánh trực tiếp trong RAM)</div>
     <div class="heap-wrap">
-      <div class="heap-nodes" id="${id}-heap"></div>
-      <div class="heap-label">Phần tử nhỏ nhất luôn ở đầu → ghi ra Output</div>
+      <div class="heap-tree-title">
+        MIN-HEAP
+        <span class="heap-count" id="${id}-hcnt">0 phần tử</span>
+      </div>
+      <div class="heap-tree" id="${id}-heap"></div>
+      <div class="heap-label">⬆ Phần tử nhỏ nhất (gốc cây) → được ghi ra Output trước</div>
     </div>`;
 
-  stageContent.appendChild(zone);
-
-  // Output disk zone
-  const outZone = document.createElement('div');
-  outZone.className = 'zone zone-disk';
-  outZone.id = `${id}-out-zone`;
-  outZone.innerHTML = `
+  // Disk output zone
+  const diskOut = document.createElement('div');
+  diskOut.className = 'zone zone-disk';
+  diskOut.innerHTML = `
     <div class="zone-header">
       <span class="zone-icon">💾</span>
       <span class="zone-title">Disk — Output</span>
-      <span class="zone-desc">Ghi kết quả đã merge ra Disk</span>
+      <span class="zone-desc">Ghi kết quả đã merge về Disk</span>
     </div>
     <div class="output-wrap">
-      <div class="output-title">
-        <span>Luồng output (đã sắp xếp)</span>
-        <span class="output-count" id="${id}-out-count">0 phần tử</span>
+      <div class="out-header">
+        <span class="out-title">Luồng output (đã sắp xếp)</span>
+        <span class="out-count" id="${id}-out-cnt">0 phần tử</span>
       </div>
-      <div class="output-numbers" id="${id}-out-nums"></div>
+      <div class="out-stream" id="${id}-out"></div>
     </div>`;
-  stageContent.appendChild(outZone);
 
+  stageContent.appendChild(ramZone);
+  stageContent.appendChild(diskOut);
   stageContent.scrollTop = stageContent.scrollHeight;
 
-  heapNodesEl  = document.getElementById(`${id}-heap`);
-  outputNumsEl = document.getElementById(`${id}-out-nums`);
-  currentPassId  = passId;
-  currentGroupId = groupId;
+  currentHeapEl     = document.getElementById(`${id}-heap`);
+  currentOutEl      = document.getElementById(`${id}-out`);
+  currentOutCountEl = document.getElementById(`${id}-out-cnt`);
+
+  VS.mergeZones.push({passId, groupId, inputs: inputs||[]});
 }
 
-function ensureCurrentRefs(){
-  if(currentPassId===null) return;
-  const id = `merge-${currentPassId}-${currentGroupId}`;
-  heapNodesEl  = document.getElementById(`${id}-heap`);
-  outputNumsEl = document.getElementById(`${id}-out-nums`);
-}
+// ════════════════════════════════════════════════════════════
+//  BUFFER CARDS — Pop & Shift
+// ════════════════════════════════════════════════════════════
+function getBufKey(passId, groupId, bufIdx){ return `${passId}-${groupId}-${bufIdx}`; }
 
-// ── Build buffer cards (RAM) ──────────────────────────────────
-function getOrCreateBufferCard(passId, groupId, bufIdx){
-  const id = `buf-${passId}-${groupId}-${bufIdx}`;
-  if(document.getElementById(id)) return document.getElementById(id);
-  const mergeId = `merge-${passId}-${groupId}`;
-  const bufsRow = document.getElementById(`${mergeId}-bufs`);
+function getOrCreateBufCard(passId, groupId, bufIdx){
+  const cid  = `bc-${passId}-${groupId}-${bufIdx}`;
+  if(document.getElementById(cid)) return document.getElementById(cid);
+  const bufsRow = document.getElementById(`mz-${passId}-${groupId}-bufs`);
   if(!bufsRow) return null;
-  const card = document.createElement('div');
-  card.className = 'buffer-card';
-  card.id = id;
-  card.innerHTML = `
-    <div class="buffer-card-header">
-      <span class="buffer-card-title">🧠 Buffer ${bufIdx}</span>
-      <span style="font-size:9px;color:var(--muted);font-family:var(--font-mono)">từ Run ${bufIdx}</span>
+  const el = document.createElement('div');
+  el.className = 'buffer-card'; el.id = cid;
+  el.innerHTML = `
+    <div class="bc-header">
+      <span class="bc-title">🧠 Buffer ${bufIdx}</span>
+      <span class="bc-from">← Run ${bufIdx}</span>
     </div>
-    <div class="buffer-numbers" id="${id}-nums">—</div>
-    <div class="buffer-refill-label" id="${id}-refill">↑ nạp từ Disk...</div>`;
-  bufsRow.appendChild(card);
-  return card;
+    <div class="bc-nums" id="${cid}-nums">—</div>
+    <div class="bc-refill-msg" id="${cid}-refill">⬇ Nạp thêm từ Disk...</div>`;
+  bufsRow.appendChild(el);
+  const key = getBufKey(passId, groupId, bufIdx);
+  if(!VS.bufs[key]) VS.bufs[key] = {nums:[], usedCount:0};
+  return el;
 }
 
-function updateBufferCard(passId, groupId, bufIdx, nums, refilling=false){
-  const id   = `buf-${passId}-${groupId}-${bufIdx}`;
-  const card = document.getElementById(id) || getOrCreateBufferCard(passId, groupId, bufIdx);
-  if(!card) return;
-  const numsEl   = document.getElementById(`${id}-nums`);
-  const refillEl = document.getElementById(`${id}-refill`);
+function renderBufCard(passId, groupId, bufIdx){
+  const key  = getBufKey(passId, groupId, bufIdx);
+  const data = VS.bufs[key];
+  if(!data) return;
+  const cid  = `bc-${passId}-${groupId}-${bufIdx}`;
+  const el   = document.getElementById(cid) || getOrCreateBufCard(passId, groupId, bufIdx);
+  if(!el) return;
+  const numsEl   = document.getElementById(`${cid}-nums`);
+  const refillEl = document.getElementById(`${cid}-refill`);
   if(!numsEl) return;
 
-  if(!nums || !nums.length){
-    numsEl.innerHTML = '<span style="opacity:.4">hết dữ liệu</span>';
-    card.classList.add('empty');
+  const live = data.nums;
+  const used = data.usedCount || 0;
+
+  if(!live || !live.length){
+    el.classList.add('bc-empty');
+    el.classList.remove('bc-active');
+    numsEl.innerHTML = '<span style="opacity:.35;color:var(--muted)">hết dữ liệu</span>';
   } else {
-    card.classList.remove('empty');
-    const top  = nums[0];
-    const rest = nums.slice(1, 5);
-    numsEl.innerHTML =
-      `<span class="buf-top">${fmt(top)}</span>` +
-      (rest.length ? '  ' + rest.map(v=>fmt(v)).join('  ') : '') +
-      (nums.length > 5 ? `  <span style="opacity:.4">+${nums.length-5}...</span>` : '');
-    card.classList.toggle('active', !refilling);
+    el.classList.remove('bc-empty');
+    el.classList.add('bc-active');
+    // Show all tracked numbers; mark first `used` as dimmed
+    numsEl.innerHTML = live.map((v, i) => {
+      const isDimmed = i < used;
+      const isTop    = i === used; // first non-used = current top
+      return `<span class="bn${isDimmed?' bn-used':isTop?' bn-top':''}" data-pos="${i}">${fmt(v)}</span>`;
+    }).join('  ');
   }
-  if(refillEl) refillEl.classList.toggle('show', refilling);
+  if(refillEl) refillEl.classList.toggle('show', data.refilling || false);
 }
 
-// ── Heap animations ───────────────────────────────────────────
-function pushHeapNode(value, src){
-  if(!heapNodesEl) return;
-  // remove existing if same value+src (prevent duplication)
-  const existing = Array.from(heapNodesEl.children)
-    .find(n=>n.dataset.val==value && n.dataset.src==String(src));
-  if(existing) return;
-
-  const node = document.createElement('div');
-  node.className = 'heap-node';
-  node.dataset.val = value;
-  node.dataset.src = src;
-  node.textContent = `${fmt(value)} (s${src})`;
-  heapNodesEl.appendChild(node);
-  requestAnimationFrame(()=>node.classList.add('visible'));
-
-  // Highlight min
-  highlightHeapMin();
-  while(heapNodesEl.children.length > 20) heapNodesEl.removeChild(heapNodesEl.children[0]);
+// Mark top of buffer as used (pop & shift visual)
+function bufPopTop(passId, groupId, bufIdx){
+  const key  = getBufKey(passId, groupId, bufIdx);
+  if(!VS.bufs[key]) return;
+  VS.bufs[key].usedCount = (VS.bufs[key].usedCount || 0) + 1;
+  renderBufCard(passId, groupId, bufIdx);
 }
 
-function popHeapNode(value, src){
-  if(!heapNodesEl) return;
-  const nodes = Array.from(heapNodesEl.children);
-  const found = nodes.find(n=>n.dataset.val==value && n.dataset.src==String(src));
-  const target = found || nodes[0];
-  if(!target) return;
-  target.classList.add('popping');
-  setTimeout(()=>{ target.parentNode?.removeChild(target); highlightHeapMin(); }, 200);
+function bufRefill(passId, groupId, bufIdx, newNums){
+  const key = getBufKey(passId, groupId, bufIdx);
+  VS.bufs[key] = {nums: newNums, usedCount: 0, refilling: false};
+  const cid = `bc-${passId}-${groupId}-${bufIdx}`;
+  const el  = document.getElementById(cid);
+  if(el){ el.classList.add('bc-refill'); setTimeout(()=>el.classList.remove('bc-refill'), 1200); }
+  renderBufCard(passId, groupId, bufIdx);
 }
 
-function highlightHeapMin(){
-  if(!heapNodesEl) return;
-  const nodes = Array.from(heapNodesEl.children);
-  // find smallest
-  let minNode = null, minVal = Infinity;
-  nodes.forEach(n=>{
-    const v = parseFloat(n.dataset.val);
-    if(v < minVal){ minVal = v; minNode = n; }
-  });
-  nodes.forEach(n=>n.classList.remove('heap-min'));
-  if(minNode) minNode.classList.add('heap-min');
+// ════════════════════════════════════════════════════════════
+//  HEAP — Tree Layout
+// ════════════════════════════════════════════════════════════
+function rebuildHeapDOM(){
+  if(!currentHeapEl) return;
+  const heap = VS.heap;
+  currentHeapEl.innerHTML = '';
+
+  if(!heap.length){
+    currentHeapEl.innerHTML = '<span style="opacity:.3;font-size:10px;font-family:var(--font-mono);color:var(--muted)">trống</span>';
+    const cntEl = currentHeapEl.closest('.heap-wrap')?.querySelector('.heap-count');
+    if(cntEl) cntEl.textContent = '0 phần tử';
+    return;
+  }
+
+  // Find min value for highlighting
+  const minVal = Math.min(...heap.map(n=>n.value));
+
+  // Build levels: level 0 = root, level 1 = children, etc.
+  // Show up to 4 levels (15 nodes max) visually
+  let levelStart = 0, levelSize = 1, level = 0;
+  while(levelStart < heap.length && level < 4){
+    const row = document.createElement('div');
+    row.className = 'heap-level';
+    const end = Math.min(levelStart + levelSize, heap.length);
+    for(let i = levelStart; i < end; i++){
+      const n = heap[i];
+      const node = document.createElement('div');
+      node.className = 'heap-node';
+      node.dataset.val = n.value;
+      node.dataset.src = n.src;
+      node.textContent = `${fmt(n.value)} (s${n.src})`;
+      if(n.value === minVal) node.classList.add('hn-min');
+      row.appendChild(node);
+    }
+    // remaining indicator
+    if(heap.length > 15 && level === 3){
+      const more = document.createElement('div');
+      more.style.cssText='font-size:9px;color:var(--muted);font-family:var(--font-mono);opacity:.5';
+      more.textContent = `+${heap.length-15}...`;
+      row.appendChild(more);
+    }
+    currentHeapEl.appendChild(row);
+    requestAnimationFrame(()=>{
+      row.querySelectorAll('.heap-node').forEach(n=>n.classList.add('hn-visible'));
+    });
+    if(level < 3) {
+      const conn = document.createElement('div');
+      conn.className = 'heap-connector';
+      currentHeapEl.appendChild(conn);
+    }
+    levelStart += levelSize;
+    levelSize  *= 2;
+    level++;
+  }
+
+  const cntEl = currentHeapEl.closest('.heap-wrap')?.querySelector('.heap-count');
+  if(cntEl) cntEl.textContent = heap.length+' phần tử';
 }
 
-// ── Output emit ───────────────────────────────────────────────
+function heapPush(value, src){
+  VS.heap.push({value, src});
+  rebuildHeapDOM();
+}
+
+function heapPop(value, src){
+  const i = VS.heap.findIndex(n=>n.value==value && n.src==String(src));
+  if(i !== -1) VS.heap.splice(i, 1);
+  else if(VS.heap.length) VS.heap.shift();
+  rebuildHeapDOM();
+}
+
+// ════════════════════════════════════════════════════════════
+//  OUTPUT
+// ════════════════════════════════════════════════════════════
 function emitOutput(value){
-  if(!outputNumsEl) return;
-  outputCount++;
-  const countEl = outputNumsEl.closest('.output-wrap')?.querySelector('.output-count');
-  if(countEl) countEl.textContent = outputCount + ' phần tử';
-
-  // Keep last ~30 numbers shown
-  const span = document.createElement('span');
-  span.className = 'out-latest';
-  span.textContent = fmt(value) + '  ';
-  outputNumsEl.appendChild(span);
-  requestAnimationFrame(()=>{ span.style.color = 'var(--green)'; });
-  setTimeout(()=>{ span.style.color = 'rgba(34,211,160,.6)'; span.className=''; }, 600);
-
-  // trim old
-  while(outputNumsEl.children.length > 40) outputNumsEl.removeChild(outputNumsEl.children[0]);
+  VS.output.push(value);
+  VS.outputCount++;
+  if(VS.output.length > 60) VS.output.shift();
+  renderOutput();
 }
 
-// ── Flying token animation ────────────────────────────────────
-function flyToken(fromEl, toEl, value, onDone){
+function renderOutput(){
+  if(!currentOutEl) return;
+  const latest = VS.output[VS.output.length-1];
+  currentOutEl.innerHTML = VS.output.map((v,i)=>{
+    const isNew = i === VS.output.length-1;
+    return `<span class="out-num${isNew?' on-new':''}">${fmt(v)}</span>`;
+  }).join('  ');
+  if(currentOutCountEl) currentOutCountEl.textContent = VS.outputCount+' phần tử';
+  // fade new highlight
+  const newEl = currentOutEl.querySelector('.on-new');
+  if(newEl) setTimeout(()=>newEl.classList.remove('on-new'), 600);
+}
+
+// ════════════════════════════════════════════════════════════
+//  FLYING TOKEN ANIMATION
+// ════════════════════════════════════════════════════════════
+function flyToken(fromEl, toEl, value, color='var(--yellow)', onDone){
   if(!fromEl || !toEl){ onDone?.(); return; }
   const fr = fromEl.getBoundingClientRect();
   const tr = toEl.getBoundingClientRect();
   const token = document.createElement('div');
-  token.className = 'flying-token';
+  token.className = 'fly-token';
   token.textContent = fmt(value);
-  token.style.left = (fr.left + fr.width/2) + 'px';
-  token.style.top  = (fr.top  + fr.height/2) + 'px';
+  token.style.cssText = `left:${fr.left+fr.width/2}px;top:${fr.top+fr.height/2}px;background:${color}`;
   document.body.appendChild(token);
 
-  const dx = (tr.left + tr.width/2)  - (fr.left + fr.width/2);
-  const dy = (tr.top  + tr.height/2) - (fr.top  + fr.height/2);
-  const dur = Math.min(500, Math.max(200, Math.sqrt(dx*dx+dy*dy)*0.5));
+  const dx = (tr.left+tr.width/2)  - (fr.left+fr.width/2);
+  const dy = (tr.top +tr.height/2) - (fr.top +fr.height/2);
+  const dur= Math.min(480, Math.max(180, Math.sqrt(dx*dx+dy*dy)*0.45));
 
   token.animate([
-    {transform:'translate(0,0) scale(1)',  opacity:1},
-    {transform:`translate(${dx}px,${dy}px) scale(0.8)`, opacity:0}
-  ],{duration:dur, easing:'ease-in'}).onfinish = ()=>{
-    token.remove();
-    onDone?.();
-  };
+    {transform:'translate(-50%,-50%) scale(1)',   opacity:1},
+    {transform:`translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(0.75)`, opacity:0}
+  ],{duration:dur, easing:'ease-in'}).onfinish = ()=>{ token.remove(); onDone?.(); };
 }
 
-// ── Event processing ──────────────────────────────────────────
+// ════════════════════════════════════════════════════════════
+//  RESTORE SNAPSHOT (Back button)
+// ════════════════════════════════════════════════════════════
+function restoreSnapshot(snap){
+  VS = JSON.parse(JSON.stringify(snap));
+  idx = VS.idx;
+
+  // Rebuild DOM from VS
+  stageContent.innerHTML = '';
+
+  // Re-create phase1 zone if needed
+  if(Object.keys(VS.runs).length > 0){
+    ensurePhase1();
+    Object.keys(VS.runs).forEach(ri => renderRunCard(parseInt(ri)));
+  }
+
+  // Re-create transfer arrow
+  if(document.getElementById('zone-ph1')) ensureTransferArrow();
+
+  // Re-create merge zones
+  VS.mergeZones.forEach(mz => {
+    ensureMergeZone(mz.passId, mz.groupId, mz.inputs);
+    // rebuild buffers
+    Object.keys(VS.bufs).forEach(key => {
+      const [p,g,b] = key.split('-').map(Number);
+      if(p===mz.passId && g===mz.groupId){
+        getOrCreateBufCard(p, g, b);
+        renderBufCard(p, g, b);
+      }
+    });
+    // rebuild heap
+    currentPassId  = mz.passId;
+    currentGroupId = mz.groupId;
+    currentHeapEl  = document.getElementById(`mz-${mz.passId}-${mz.groupId}-heap`);
+    currentOutEl   = document.getElementById(`mz-${mz.passId}-${mz.groupId}-out`);
+    currentOutCountEl = document.getElementById(`mz-${mz.passId}-${mz.groupId}-out-cnt`);
+  });
+  rebuildHeapDOM();
+  renderOutput();
+
+  // Rebuild log
+  rebuildLogFromVS(VS.logEntries);
+
+  // Update progress and phase badge
+  updateProgress();
+  updateHistoryBadge();
+
+  log('← Quay lại bước trước', 'back', true);
+}
+
+// ════════════════════════════════════════════════════════════
+//  EVENT PROCESSING
+// ════════════════════════════════════════════════════════════
 function processEvent(ev){
   switch(ev.type){
 
@@ -808,113 +1051,156 @@ function processEvent(ev){
       statB.textContent  = ev.block_size ?? statB.textContent;
       sk.textContent     = ev.k ?? sk.textContent;
       sb.textContent     = ev.block_size ?? sb.textContent;
-      if(ev.visualize_sample_size) statSample.textContent = ev.visualize_sample_size;
+      if(ev.visualize_sample_size){
+        statSample.textContent = ev.visualize_sample_size;
+        fiSim.textContent = ev.visualize_sample_size+' số mẫu';
+        sbSimN.textContent = ev.visualize_sample_size;
+        sbSimNPill.textContent = ev.visualize_sample_size;
+      }
       if(ev.original_file_size){
         const mb = (ev.original_file_size/1024/1024).toFixed(2);
+        const rn = Math.floor(ev.original_file_size/8);
         statFile.textContent = mb+' MB';
         fiSize.textContent   = mb+' MB';
-        fiCount.textContent  = Math.floor(ev.original_file_size/8).toLocaleString()+' số';
+        fiCount.textContent  = rn.toLocaleString()+' số';
+        sbRealN.textContent  = rn.toLocaleString();
       }
-      phaseBadge.textContent = 'Tham số đã chọn';
+      VS.phaseBadgeText = 'Tham số đã chọn';
       break;
 
     case 'meta':
       statK.textContent    = ev.k ?? statK.textContent;
       statB.textContent    = ev.block_size ?? statB.textContent;
       statRuns.textContent = ev.runs_count ?? statRuns.textContent;
-      sk.textContent       = ev.k ?? sk.textContent;
-      sb.textContent       = ev.block_size ?? sb.textContent;
-      sr.textContent       = ev.runs_count ?? sr.textContent;
+      sk.textContent = ev.k ?? sk.textContent;
+      sb.textContent = ev.block_size ?? sb.textContent;
+      sr.textContent = ev.runs_count ?? sr.textContent;
       break;
 
     case 'file_info':
       fiName.textContent = ev.file_name || fiName.textContent;
       if(ev.file_size){
         const mb = (ev.file_size/1024/1024).toFixed(2);
-        fiSize.textContent  = mb+' MB';
-        fiCount.textContent = Math.floor(ev.file_size/8).toLocaleString()+' số';
-        statFile.textContent= mb+' MB';
+        fiSize.textContent   = mb+' MB';
+        fiCount.textContent  = Math.floor(ev.file_size/8).toLocaleString()+' số';
+        statFile.textContent = mb+' MB';
       }
       log(`💾 File: ${ev.file_name} (${ev.file_size?(ev.file_size/1024/1024).toFixed(2)+' MB':'?'})`, 'disk');
       break;
 
     case 'read_block':{
-      phaseBadge.textContent = `Phase 1 — Run ${ev.run_index}`;
-      updateRunCard(ev.run_index, ev.sample, 'reading', ev.count);
-      flashTransfer(`📖 Đọc ${ev.count} số từ Disk → RAM`);
-      log(`💾 Đọc khối #${ev.run_index} — ${ev.count} phần tử vào RAM`, 'disk');
+      VS.phaseBadgeText = `Phase 1 — Run ${ev.run_index}`;
+      if(!VS.runs[ev.run_index]) VS.runs[ev.run_index] = {nums:[], state:'unsorted', count:0};
+      VS.runs[ev.run_index].nums  = ev.sample || [];
+      VS.runs[ev.run_index].state = 'reading';
+      VS.runs[ev.run_index].count = ev.count;
+      renderRunCard(ev.run_index);
+      flashTransfer(`📖 Đọc ${ev.count} số từ Disk vào RAM`);
+      log(`💾 Đọc khối #${ev.run_index} — ${ev.count} phần tử`, 'disk');
       break;
     }
 
     case 'sort_block':{
-      updateRunCard(ev.run_index, ev.sorted_sample, 'sorted', ev.count);
-      log(`✓ Đã sort Run #${ev.run_index} trong RAM, ghi lại Disk`, 'ok');
+      VS.runs[ev.run_index].nums  = ev.sorted_sample || [];
+      VS.runs[ev.run_index].state = 'sorted';
+      renderRunCard(ev.run_index);
+      log(`✓ Sort Run #${ev.run_index} trong RAM → ghi lại Disk`, 'ok');
       break;
     }
 
     case 'pass_info':
-      phaseBadge.textContent = `Lượt trộn ${ev.pass_id}`;
+      VS.phaseBadgeText = `Lượt trộn ${ev.pass_id}`;
+      VS.outputCount = 0;
       log(`🔀 Lượt trộn ${ev.pass_id} — ${ev.runs_before} runs, k=${ev.k}`, 'info');
-      outputCount = 0;
       break;
 
     case 'merge_start':{
       ensureMergeZone(ev.pass_id, ev.group_id, ev.inputs);
-      // init buffer cards with actual numbers
+      currentPassId  = ev.pass_id;
+      currentGroupId = ev.group_id;
+      currentHeapEl  = document.getElementById(`mz-${ev.pass_id}-${ev.group_id}-heap`);
+      currentOutEl   = document.getElementById(`mz-${ev.pass_id}-${ev.group_id}-out`);
+      currentOutCountEl = document.getElementById(`mz-${ev.pass_id}-${ev.group_id}-out-cnt`);
+      // init buffers
       if(ev.input_buffers){
-        ev.input_buffers.forEach((arr, i)=>{
-          getOrCreateBufferCard(ev.pass_id, ev.group_id, i);
-          updateBufferCard(ev.pass_id, ev.group_id, i, arr);
+        ev.input_buffers.forEach((arr,i)=>{
+          const key = getBufKey(ev.pass_id, ev.group_id, i);
+          VS.bufs[key] = {nums: arr||[], usedCount:0, refilling:false};
+          getOrCreateBufCard(ev.pass_id, ev.group_id, i);
+          renderBufCard(ev.pass_id, ev.group_id, i);
         });
       }
-      // init heap from initial_heap snapshot
-      if(ev.initial_heap && heapNodesEl){
-        heapNodesEl.innerHTML = '';
+      // init heap
+      VS.heap = [];
+      if(ev.initial_heap){
         ev.initial_heap.forEach(h=>{
-          const val = Array.isArray(h)?h[0]:h.value;
-          const src = Array.isArray(h)?h[1]:h.src;
-          pushHeapNode(val, src);
+          VS.heap.push({value: Array.isArray(h)?h[0]:h.value, src: String(Array.isArray(h)?h[1]:h.src)});
         });
       }
-      log(`🧠 Bắt đầu merge: pass ${ev.pass_id} nhóm ${ev.group_id}`, 'ram');
+      rebuildHeapDOM();
+      log(`🧠 Merge bắt đầu: pass ${ev.pass_id} nhóm ${ev.group_id}`, 'ram');
       break;
     }
 
     case 'heap_push':
-      ensureCurrentRefs();
-      pushHeapNode(ev.value, ev.src);
+      if(currentPassId!==null){
+        currentHeapEl = document.getElementById(`mz-${currentPassId}-${currentGroupId}-heap`);
+      }
+      heapPush(ev.value, String(ev.src));
+
+      // Pop & Shift: mark top of source buffer as used
+      if(currentPassId!==null && ev.src!==undefined){
+        bufPopTop(currentPassId, currentGroupId, ev.src);
+        log(`🧠 Push ${fmt(ev.value)} (s${ev.src}) → Heap`, 'ram');
+      }
       break;
 
     case 'heap_pop':
-      ensureCurrentRefs();
-      popHeapNode(ev.value, ev.src);
+      if(currentPassId!==null){
+        currentHeapEl = document.getElementById(`mz-${currentPassId}-${currentGroupId}-heap`);
+      }
+      heapPop(ev.value, String(ev.src));
       break;
 
     case 'output_emit':
-      ensureCurrentRefs();
+      if(currentPassId!==null){
+        currentOutEl      = document.getElementById(`mz-${currentPassId}-${currentGroupId}-out`);
+        currentOutCountEl = document.getElementById(`mz-${currentPassId}-${currentGroupId}-out-cnt`);
+      }
       emitOutput(ev.value);
-      // flash transfer arrow disk-write
-      if(ev.emitted_count % 5 === 0){
-        flashTransfer(`💾 Ghi ${fmt(ev.value)} ra Disk (${ev.emitted_count} phần tử)`);
+      if(ev.emitted_count % 6 === 0){
+        flashTransfer(`💾 Ghi ${fmt(ev.value)} → Disk (${ev.emitted_count} phần tử)`);
+        log(`💾 Output: ${fmt(ev.value)} (tổng ${ev.emitted_count})`, 'disk');
       }
       break;
 
     case 'input_buffer_update':
-      if(ev.input_buffers){
+      if(ev.input_buffers && currentPassId!==null){
         ev.input_buffers.forEach((arr,i)=>{
-          updateBufferCard(currentPassId, currentGroupId, i, arr);
+          const key  = getBufKey(currentPassId, currentGroupId, i);
+          const prev = VS.bufs[key];
+          // Detect refill: new array length significantly larger than prev remaining
+          const prevRemaining = prev ? (prev.nums.length - (prev.usedCount||0)) : 0;
+          const isRefill = arr && arr.length > prevRemaining + 2;
+          if(isRefill){
+            bufRefill(currentPassId, currentGroupId, i, arr);
+            flashTransfer(`⬇ Nạp ${arr.length} số mới từ Disk vào Buffer ${i}`);
+            log(`💾 Buffer ${i} trống — nạp ${arr.length} số tiếp từ Run ${i}`, 'disk');
+          } else {
+            VS.bufs[key] = {nums: arr||[], usedCount:0, refilling:false};
+            renderBufCard(currentPassId, currentGroupId, i);
+          }
         });
       }
       break;
 
     case 'merge_end':
-      log(`✓ Kết thúc merge pass ${ev.pass_id} nhóm ${ev.group_id} — ${ev.merged_count} phần tử`, 'ok');
+      log(`✓ Merge xong pass ${ev.pass_id} nhóm ${ev.group_id} — ${ev.merged_count} phần tử`, 'ok');
       break;
 
     case 'finished':{
-      phaseBadge.textContent = '✓ Hoàn thành';
+      VS.phaseBadgeText = '✓ Hoàn thành';
       log('🎉 Visualization hoàn thành!', 'ok');
-      // Final output zone
       if(ev.final_preview?.length){
         const finZone = document.createElement('div');
         finZone.className = 'zone zone-disk';
@@ -926,8 +1212,8 @@ function processEvent(ev){
             <span class="zone-desc">${ev.final_preview.length} số (preview)</span>
           </div>
           <div class="output-wrap" style="border-color:rgba(34,211,160,.4)">
-            <div class="output-title"><span>Output sorted</span></div>
-            <div class="output-numbers" style="color:var(--green);max-height:80px;overflow:auto">
+            <div class="out-header"><span class="out-title">Output sorted</span></div>
+            <div class="out-stream" style="color:var(--green);max-height:80px;overflow:auto">
               ${ev.final_preview.map(v=>`<span>${fmt(v)}</span>`).join('  ')}
             </div>
           </div>`;
@@ -942,14 +1228,31 @@ function processEvent(ev){
   }
 }
 
-// ── Playback ──────────────────────────────────────────────────
-function tick(){
-  if(paused || idx >= steps.length) return;
+// ════════════════════════════════════════════════════════════
+//  handleStep — saves history before each step
+// ════════════════════════════════════════════════════════════
+function handleStep(){
+  if(animating || idx >= steps.length) return;
+  // Save snapshot BEFORE processing this step
+  pushHistory();
+  VS.idx = idx;
   processEvent(steps[idx++]);
+  VS.idx = idx;
   updateProgress();
-  setTimeout(tick, Math.max(30, 380/speed));
 }
 
+// ════════════════════════════════════════════════════════════
+//  PLAYBACK LOOP
+// ════════════════════════════════════════════════════════════
+function tick(){
+  if(paused || idx >= steps.length) return;
+  handleStep();
+  setTimeout(tick, Math.max(30, 360/speed));
+}
+
+// ════════════════════════════════════════════════════════════
+//  CONTROLS
+// ════════════════════════════════════════════════════════════
 startBtn.onclick = ()=>{
   paused = false;
   startBtn.disabled = true;
@@ -957,21 +1260,37 @@ startBtn.onclick = ()=>{
   pauseBtn.textContent = '⏸ Pause';
   tick();
 };
+
 pauseBtn.onclick = ()=>{
   paused = !paused;
   pauseBtn.textContent = paused ? '▶ Resume' : '⏸ Pause';
   if(!paused) tick();
 };
+
 stepBtn.onclick = ()=>{
-  if(!paused){ paused=true; pauseBtn.textContent='▶ Resume'; }
-  if(idx < steps.length){ processEvent(steps[idx++]); updateProgress(); }
+  if(!paused){ paused = true; pauseBtn.textContent = '▶ Resume'; }
+  handleStep();
 };
+
+backBtn.onclick = ()=>{
+  if(!history.length) return;
+  if(!paused){ paused = true; pauseBtn.textContent = '▶ Resume'; }
+  const snap = history.pop();
+  idx = snap.idx;
+  restoreSnapshot(snap);
+};
+
 speedInput.oninput = ()=>{ speed=parseFloat(speedInput.value); speedLabel.textContent=speed+'×'; };
 
 document.addEventListener('keydown', e=>{
   if(e.target.tagName==='INPUT') return;
-  if(e.code==='Space'){ e.preventDefault(); paused?startBtn.disabled?pauseBtn.click():startBtn.click():pauseBtn.click(); }
+  if(e.code==='Space'){
+    e.preventDefault();
+    if(!startBtn.disabled && paused) startBtn.click();
+    else pauseBtn.click();
+  }
   if(e.key==='ArrowRight') stepBtn.click();
+  if(e.key==='ArrowLeft')  backBtn.click();
 });
 </script>
 </body>
