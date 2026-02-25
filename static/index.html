@@ -139,30 +139,39 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .bc-refill-msg.show{display:block;animation:blink .55s steps(1) infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
-/* ── Heap tree ── */
-.heap-wrap{background:rgba(0,0,0,.25);border:1px solid rgba(91,33,182,.2);border-radius:10px;padding:14px}
-.heap-tree-title{font-family:var(--font-mono);font-size:10px;color:#9070cc;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between}
-.heap-count{font-size:9px;color:var(--muted)}
-/* tree rendered as rows */
-.heap-tree{display:flex;flex-direction:column;gap:6px;align-items:center}
-.heap-level{display:flex;gap:8px;justify-content:center;align-items:center}
-.heap-node{
-  font-family:var(--font-mono);font-size:11px;padding:5px 10px;border-radius:6px;
-  background:linear-gradient(135deg,rgba(139,92,246,.2),rgba(244,63,94,.12));
-  border:1px solid rgba(139,92,246,.3);color:#c4b5fd;
-  opacity:0;transform:translateY(5px);
-  transition:opacity .2s,transform .2s,background .25s,border-color .25s,color .25s
-}
-.heap-node.hn-visible{opacity:1;transform:translateY(0)}
-.heap-node.hn-min{
-  background:linear-gradient(135deg,rgba(244,63,94,.35),rgba(245,158,11,.25));
-  border-color:var(--red);color:#fff;font-weight:700;
-  animation:hn-pulse .8s ease-in-out infinite
-}
-@keyframes hn-pulse{0%,100%{box-shadow:0 0 0 0 rgba(244,63,94,.3)}50%{box-shadow:0 0 0 5px rgba(244,63,94,.1)}}
-.heap-node.hn-pop{opacity:0;transform:translateY(-14px) scale(.8);transition:opacity .18s,transform .18s}
-.heap-connector{width:1px;height:10px;background:rgba(139,92,246,.2);margin:0 auto}
-.heap-label{font-size:9px;font-family:var(--font-mono);color:var(--muted);margin-top:8px;text-align:center}
+/* ── Heap SVG Binary Tree ── */
+.heap-wrap{background:rgba(0,0,0,.3);border:1px solid rgba(91,33,182,.25);border-radius:12px;padding:14px}
+.heap-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.heap-hdr-title{font-family:var(--font-mono);font-size:10px;color:#9070cc;text-transform:uppercase;letter-spacing:.1em}
+.heap-count{font-size:9px;color:var(--muted);font-family:var(--font-mono)}
+.heap-svg-container{width:100%;overflow:visible}
+.heap-svg-container svg{display:block;overflow:visible}
+/* SVG node circle */
+.hn-circle{fill:#1a0f2e;stroke:rgba(139,92,246,.55);stroke-width:1.6;
+  transition:fill .3s,stroke .3s,stroke-width .3s,filter .3s}
+.hn-circle.hnc-min{fill:#2d0820;stroke:#f43f5e;stroke-width:2.2;
+  filter:drop-shadow(0 0 7px rgba(244,63,94,.65))}
+.hn-circle.hnc-swap{fill:#231520;stroke:#fde047;stroke-width:2.2;
+  filter:drop-shadow(0 0 7px rgba(253,224,71,.55))}
+.hn-circle.hnc-compare{fill:#1a1a0c;stroke:#f59e0b;stroke-width:1.8;
+  filter:drop-shadow(0 0 5px rgba(245,158,11,.45))}
+.hn-circle.hnc-new{fill:#0c1a2e;stroke:#00d4ff;stroke-width:1.8;
+  filter:drop-shadow(0 0 6px rgba(0,212,255,.45))}
+/* SVG text */
+.hn-val{font-family:'Space Mono',monospace;font-size:10.5px;fill:#c4b5fd;
+  text-anchor:middle;dominant-baseline:middle;pointer-events:none;font-weight:400}
+.hn-val.hnv-min{fill:#fff;font-weight:700}
+.hn-val.hnv-swap{fill:#fde047;font-weight:700}
+.hn-src{font-family:'Space Mono',monospace;font-size:8.5px;fill:rgba(155,130,210,.6);
+  text-anchor:middle;dominant-baseline:middle;pointer-events:none}
+.hn-src.hns-min{fill:rgba(255,140,140,.8)}
+/* SVG edges */
+.hn-edge{stroke:rgba(90,110,190,.3);stroke-width:1.2;fill:none;transition:stroke .3s}
+.hn-edge.hne-swap{stroke:rgba(253,224,71,.7);stroke-width:1.8}
+/* legend */
+.heap-legend{font-size:9px;font-family:var(--font-mono);color:var(--muted);margin-top:8px;
+  display:flex;gap:14px;flex-wrap:wrap}
+.hl-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px;vertical-align:middle}
 
 /* ── Output ── */
 .output-wrap{background:var(--disk-bg);border:1px dashed rgba(34,211,160,.28);border-radius:10px;padding:12px}
@@ -761,14 +770,18 @@ function ensureMergeZone(passId, groupId, inputs){
     </div>
     <div class="section-label">Input Buffers (đọc từng khối từ Disk)</div>
     <div class="runs-row" id="${id}-bufs"></div>
-    <div class="section-label" style="margin-top:4px">Min-Heap (so sánh trực tiếp trong RAM)</div>
+    <div class="section-label" style="margin-top:4px">Min-Heap — Binary Tree (so sánh trong RAM)</div>
     <div class="heap-wrap">
-      <div class="heap-tree-title">
-        MIN-HEAP
+      <div class="heap-hdr">
+        <span class="heap-hdr-title">MIN-HEAP</span>
         <span class="heap-count" id="${id}-hcnt">0 phần tử</span>
       </div>
-      <div class="heap-tree" id="${id}-heap"></div>
-      <div class="heap-label">⬆ Phần tử nhỏ nhất (gốc cây) → được ghi ra Output trước</div>
+      <div class="heap-svg-container" id="${id}-heap"></div>
+      <div class="heap-legend">
+        <span><span class="hl-dot" style="background:#f43f5e;box-shadow:0 0 4px rgba(244,63,94,.5)"></span>Root (nhỏ nhất)</span>
+        <span><span class="hl-dot" style="background:rgba(139,92,246,.5)"></span>Node bình thường</span>
+        <span><span class="hl-dot" style="background:#fde047;box-shadow:0 0 4px rgba(253,224,71,.4)"></span>Đang swap</span>
+      </div>
     </div>`;
 
   // Disk output zone
@@ -873,75 +886,220 @@ function bufRefill(passId, groupId, bufIdx, newNums){
 }
 
 // ════════════════════════════════════════════════════════════
-//  HEAP — Tree Layout
+//  HEAP — SVG Binary Tree Engine
 // ════════════════════════════════════════════════════════════
-function rebuildHeapDOM(){
+// Layout constants
+const H_R     = 22;    // node radius
+const H_LH    = 68;    // level height (vertical gap centre-to-centre)
+const H_W_MIN = 340;   // minimum SVG width
+const H_MAX_NODES = 31; // show max 5 levels (2^5-1 = 31)
+
+// Compute (cx, cy) for node at index i in a heap
+// Uses full binary tree layout: assign column in leaf row
+function heapNodePos(i, n, svgW){
+  // depth of node i (0-indexed)
+  const depth = Math.floor(Math.log2(i + 1));
+  const maxDepth = Math.floor(Math.log2(Math.min(n, H_MAX_NODES)));
+  // position within its level
+  const levelStart = (1 << depth) - 1;   // 2^depth - 1
+  const posInLevel = i - levelStart;
+  const levelCount = Math.min((1 << depth), n - levelStart);
+  // number of slots at max depth row
+  const slots = 1 << maxDepth;
+  // each node occupies slots/(levelCount) columns
+  const stride = slots / (1 << depth);
+  const col    = posInLevel * stride + stride / 2;
+  const cx = (col / slots) * svgW;
+  const cy = H_R + depth * H_LH;
+  return {cx, cy, depth};
+}
+
+function heapSVGHeight(n){
+  if(!n) return 60;
+  const maxDepth = Math.floor(Math.log2(Math.min(n, H_MAX_NODES)));
+  return H_R * 2 + maxDepth * H_LH + H_R + 10;
+}
+
+// Build a <g> element for a single node
+function makeNodeG(i, node, isMin, svgW, n, extraClass=''){
+  const {cx, cy} = heapNodePos(i, n, svgW);
+  const ns = 'http://www.w3.org/2000/svg';
+  const g  = document.createElementNS(ns, 'g');
+  g.setAttribute('class', 'hn-g');
+  g.dataset.idx = i;
+
+  const circle = document.createElementNS(ns, 'circle');
+  circle.setAttribute('cx', cx);
+  circle.setAttribute('cy', cy);
+  circle.setAttribute('r', H_R);
+  circle.setAttribute('class', 'hn-circle' + (isMin ? ' hnc-min' : '') + (extraClass ? ' '+extraClass : ''));
+  g.appendChild(circle);
+
+  // value text (top line)
+  const valTxt = document.createElementNS(ns, 'text');
+  valTxt.setAttribute('x', cx);
+  valTxt.setAttribute('y', cy - 5);
+  valTxt.setAttribute('class', 'hn-val' + (isMin ? ' hnv-min' : ''));
+  valTxt.textContent = fmt(node.value);
+  g.appendChild(valTxt);
+
+  // source label (bottom line)
+  const srcTxt = document.createElementNS(ns, 'text');
+  srcTxt.setAttribute('x', cx);
+  srcTxt.setAttribute('y', cy + 9);
+  srcTxt.setAttribute('class', 'hn-src' + (isMin ? ' hns-min' : ''));
+  srcTxt.textContent = `s${node.src}`;
+  g.appendChild(srcTxt);
+
+  return g;
+}
+
+// Build edge line from parent i to child j
+function makeEdge(i, j, n, svgW, extraClass=''){
+  const ns = 'http://www.w3.org/2000/svg';
+  const {cx:x1, cy:y1} = heapNodePos(i, n, svgW);
+  const {cx:x2, cy:y2} = heapNodePos(j, n, svgW);
+  const line = document.createElementNS(ns, 'line');
+  line.setAttribute('x1', x1); line.setAttribute('y1', y1 + H_R);
+  line.setAttribute('x2', x2); line.setAttribute('y2', y2 - H_R);
+  line.setAttribute('class', 'hn-edge' + (extraClass ? ' '+extraClass : ''));
+  return line;
+}
+
+// Full redraw of the heap SVG
+function rebuildHeapDOM(highlightIdx = -1, swapPair = null){
   if(!currentHeapEl) return;
   const heap = VS.heap;
-  currentHeapEl.innerHTML = '';
+
+  // update count badge
+  const cntEl = currentHeapEl.closest('.heap-wrap')?.querySelector('.heap-count');
+  if(cntEl) cntEl.textContent = heap.length + ' phần tử';
 
   if(!heap.length){
-    currentHeapEl.innerHTML = '<span style="opacity:.3;font-size:10px;font-family:var(--font-mono);color:var(--muted)">trống</span>';
-    const cntEl = currentHeapEl.closest('.heap-wrap')?.querySelector('.heap-count');
-    if(cntEl) cntEl.textContent = '0 phần tử';
+    currentHeapEl.innerHTML = '<div style="opacity:.3;font-size:10px;font-family:var(--font-mono);color:#5a7090;padding:18px 0;text-align:center">heap trống</div>';
     return;
   }
 
-  // Find min value for highlighting
-  const minVal = Math.min(...heap.map(n=>n.value));
+  const ns    = 'http://www.w3.org/2000/svg';
+  const shown = Math.min(heap.length, H_MAX_NODES);
+  const wrap  = currentHeapEl;
+  const svgW  = Math.max(H_W_MIN, wrap.clientWidth || H_W_MIN);
+  const svgH  = heapSVGHeight(shown);
 
-  // Build levels: level 0 = root, level 1 = children, etc.
-  // Show up to 4 levels (15 nodes max) visually
-  let levelStart = 0, levelSize = 1, level = 0;
-  while(levelStart < heap.length && level < 4){
-    const row = document.createElement('div');
-    row.className = 'heap-level';
-    const end = Math.min(levelStart + levelSize, heap.length);
-    for(let i = levelStart; i < end; i++){
-      const n = heap[i];
-      const node = document.createElement('div');
-      node.className = 'heap-node';
-      node.dataset.val = n.value;
-      node.dataset.src = n.src;
-      node.textContent = `${fmt(n.value)} (s${n.src})`;
-      if(n.value === minVal) node.classList.add('hn-min');
-      row.appendChild(node);
+  const svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
+  svg.setAttribute('width', svgW);
+  svg.setAttribute('height', svgH);
+
+  // === Layer 1: edges (drawn first, behind nodes) ===
+  const edgeG = document.createElementNS(ns, 'g');
+  for(let i = 0; i < shown; i++){
+    const left  = 2*i + 1;
+    const right = 2*i + 2;
+    if(left  < shown){
+      const isSwapEdge = swapPair && ((i===swapPair[0]&&left===swapPair[1])||(i===swapPair[1]&&left===swapPair[0]));
+      edgeG.appendChild(makeEdge(i, left,  shown, svgW, isSwapEdge ? 'hne-swap' : ''));
     }
-    // remaining indicator
-    if(heap.length > 15 && level === 3){
-      const more = document.createElement('div');
-      more.style.cssText='font-size:9px;color:var(--muted);font-family:var(--font-mono);opacity:.5';
-      more.textContent = `+${heap.length-15}...`;
-      row.appendChild(more);
+    if(right < shown){
+      const isSwapEdge = swapPair && ((i===swapPair[0]&&right===swapPair[1])||(i===swapPair[1]&&right===swapPair[0]));
+      edgeG.appendChild(makeEdge(i, right, shown, svgW, isSwapEdge ? 'hne-swap' : ''));
     }
-    currentHeapEl.appendChild(row);
-    requestAnimationFrame(()=>{
-      row.querySelectorAll('.heap-node').forEach(n=>n.classList.add('hn-visible'));
-    });
-    if(level < 3) {
-      const conn = document.createElement('div');
-      conn.className = 'heap-connector';
-      currentHeapEl.appendChild(conn);
-    }
-    levelStart += levelSize;
-    levelSize  *= 2;
-    level++;
+  }
+  svg.appendChild(edgeG);
+
+  // === Layer 2: nodes ===
+  const nodeG = document.createElementNS(ns, 'g');
+  const minVal = heap[0].value; // heap[0] is always root = min in a min-heap
+  for(let i = 0; i < shown; i++){
+    const isMin     = (i === 0);
+    const isSwap    = swapPair && (i === swapPair[0] || i === swapPair[1]);
+    const isCompare = (i === highlightIdx);
+    let extraClass  = '';
+    if(isSwap)    extraClass = 'hnc-swap';
+    else if(isCompare) extraClass = 'hnc-compare';
+    nodeG.appendChild(makeNodeG(i, heap[i], isMin, svgW, shown, extraClass));
+  }
+  svg.appendChild(nodeG);
+
+  // overflow indicator
+  if(heap.length > H_MAX_NODES){
+    const txt = document.createElementNS(ns, 'text');
+    txt.setAttribute('x', svgW / 2);
+    txt.setAttribute('y', svgH - 4);
+    txt.setAttribute('text-anchor', 'middle');
+    txt.setAttribute('font-family', "'Space Mono',monospace");
+    txt.setAttribute('font-size', '9');
+    txt.setAttribute('fill', 'rgba(90,112,144,.6)');
+    txt.textContent = `+${heap.length - H_MAX_NODES} node không hiển thị`;
+    svg.appendChild(txt);
   }
 
-  const cntEl = currentHeapEl.closest('.heap-wrap')?.querySelector('.heap-count');
-  if(cntEl) cntEl.textContent = heap.length+' phần tử';
+  wrap.innerHTML = '';
+  wrap.appendChild(svg);
 }
 
+// ── Animated sift-down: returns Promise ──────────────────────
+// Visual-only: swaps positions in VS.heap then redraws step by step
+async function animateSiftDown(startIdx, delayMs){
+  let i = startIdx;
+  const h = VS.heap;
+  while(true){
+    const left  = 2*i + 1;
+    const right = 2*i + 2;
+    let smallest = i;
+    if(left  < h.length && h[left].value  < h[smallest].value) smallest = left;
+    if(right < h.length && h[right].value < h[smallest].value) smallest = right;
+    if(smallest === i) break;
+
+    // Flash compare highlight on children
+    rebuildHeapDOM(smallest, null);
+    await sleep(delayMs * 0.55);
+
+    // Swap in data
+    [h[i], h[smallest]] = [h[smallest], h[i]];
+
+    // Draw swap highlighted
+    rebuildHeapDOM(-1, [i, smallest]);
+    await sleep(delayMs * 0.7);
+
+    i = smallest;
+  }
+  rebuildHeapDOM();
+}
+
+function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+// ── heapPush: add node to end, then sift-up visually ─────────
 function heapPush(value, src){
   VS.heap.push({value, src});
-  rebuildHeapDOM();
+  // Highlight new node briefly
+  rebuildHeapDOM(VS.heap.length - 1, null);
+  setTimeout(() => rebuildHeapDOM(), 250);
 }
 
+// ── heapPop: animate root flying out, sift down ──────────────
+// popRoot animates the root node flying toward the output zone,
+// then restructures the heap with sift-down animation.
+// Returns a Promise so callers can await it.
 function heapPop(value, src){
-  const i = VS.heap.findIndex(n=>n.value==value && n.src==String(src));
-  if(i !== -1) VS.heap.splice(i, 1);
+  // Remove the correct node from VS data
+  const idx = VS.heap.findIndex(n => n.value == value && n.src == String(src));
+  if(idx !== -1) VS.heap.splice(idx, 1);
   else if(VS.heap.length) VS.heap.shift();
-  rebuildHeapDOM();
+
+  // If speed is fast (>1.5x) skip heavy animation, just redraw
+  if(speed > 1.5){
+    rebuildHeapDOM();
+    return;
+  }
+
+  // Animate sift-down for the new root (if heap non-empty)
+  const delayMs = Math.max(80, 320 / speed);
+  if(VS.heap.length > 1){
+    animateSiftDown(0, delayMs);
+  } else {
+    rebuildHeapDOM();
+  }
 }
 
 // ════════════════════════════════════════════════════════════
