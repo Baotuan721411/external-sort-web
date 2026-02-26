@@ -46,6 +46,42 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 .spinner.active{display:block}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* ── Start Button — Ready State Glow ── */
+.btn-start-ready{
+  background:linear-gradient(135deg,rgba(0,212,255,.15),rgba(139,92,246,.15));
+  border:1px solid rgba(0,212,255,.55) !important;
+  color:var(--cyan) !important;
+  font-weight:600;
+  animation:start-pulse 2s ease-in-out infinite;
+}
+@keyframes start-pulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(0,212,255,.0), 0 0 8px rgba(0,212,255,.3)}
+  50%    {box-shadow:0 0 0 5px rgba(0,212,255,.12), 0 0 18px rgba(0,212,255,.5)}
+}
+
+/* ── Guide Arrow ── */
+.guide-arrow-wrap{
+  display:none;align-items:center;gap:6px;
+  margin-bottom:8px;
+}
+.guide-arrow-wrap.show{display:flex}
+.guide-arrow-txt{
+  font-family:var(--font-mono);font-size:10px;color:var(--cyan);
+  animation:guide-blink 1.2s ease-in-out infinite;
+  white-space:nowrap;
+}
+.guide-arrow-svg{
+  animation:guide-float 1s ease-in-out infinite;
+  flex-shrink:0;
+}
+@keyframes guide-blink{
+  0%,100%{opacity:1}50%{opacity:.35}
+}
+@keyframes guide-float{
+  0%,100%{transform:translateX(0)}
+  50%    {transform:translateX(5px)}
+}
+
 /* ── Sampling Mode Banner ── */
 .sampling-banner{
   display:none;align-items:center;gap:12px;flex-wrap:wrap;
@@ -351,6 +387,12 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
 
     <div class="card">
       <div class="card-title">🎮 Điều khiển</div>
+      <div class="guide-arrow-wrap" id="guideArrow">
+        <svg class="guide-arrow-svg" width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M5 12h14M13 6l6 6-6 6" stroke="#00d4ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span class="guide-arrow-txt">Nhấn Start để bắt đầu mô phỏng</span>
+      </div>
       <div class="ctrl-row">
         <button class="btn btn-ghost" id="startBtn" disabled>▶ Start</button>
         <button class="btn btn-ghost" id="pauseBtn" disabled>⏸ Pause</button>
@@ -359,8 +401,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:13px;heigh
       </div>
       <div class="speed-row">
         <label>Speed</label>
-        <input type="range" id="speedInput" min="0.25" max="4" step="0.25" value="1"/>
-        <span style="font-family:var(--font-mono);font-size:11px;color:var(--cyan);min-width:28px" id="speedLabel">1×</span>
+        <input type="range" id="speedInput" min="0.25" max="4" step="0.25" value="0.25"/>
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--cyan);min-width:28px" id="speedLabel">0.25×</span>
       </div>
       <div class="hints">
         <span class="hint"><kbd>Space</kbd> pause</span>
@@ -412,6 +454,7 @@ const speedLabel     = document.getElementById('speedLabel');
 const logList        = document.getElementById('logList');
 const historyBadge   = document.getElementById('historyBadge');
 const historyCount   = document.getElementById('historyCount');
+const guideArrow     = document.getElementById('guideArrow');
 
 const statK    = document.getElementById('statK');
 const statB    = document.getElementById('statB');
@@ -430,7 +473,7 @@ const fiSim   = document.getElementById('fiSim');
 // ════════════════════════════════════════════════════════════
 //  STATE MANAGEMENT
 // ════════════════════════════════════════════════════════════
-let steps = [], idx = 0, paused = true, speed = 1, totalSteps = 0, jobId = null;
+let steps = [], idx = 0, paused = true, speed = 0.25, totalSteps = 0, jobId = null;
 let currentPassId = null, currentGroupId = null;
 let animating = false;  // block rapid clicks during fly animation
 
@@ -618,7 +661,9 @@ uploadBtn.onclick = async () => {
   updateProgress();
   log(`Nhận ${steps.length} steps — nhấn Start để xem`, 'ok');
   startBtn.disabled = false;
+  startBtn.classList.add('btn-start-ready');
   stepBtn.disabled  = false;
+  guideArrow.classList.add('show');
   updateHistoryBadge();
 };
 
@@ -1414,6 +1459,8 @@ function tick(){
 startBtn.onclick = ()=>{
   paused = false;
   startBtn.disabled = true;
+  startBtn.classList.remove('btn-start-ready');
+  guideArrow.classList.remove('show');
   pauseBtn.disabled = false;
   pauseBtn.textContent = '⏸ Pause';
   tick();
