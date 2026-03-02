@@ -212,9 +212,24 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
   max-width:100%;
 }
 
-/* Fade-in for new nodes */
-@keyframes hn-fadein{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
-.hn-g{animation:hn-fadein .22s ease-out both}
+/* Node group — opacity transition for appear/disappear */
+.hn-g{transition:opacity .25s ease}
+.hn-g.hn-exiting{opacity:0}
+
+/* Circle and text use SVG attribute transitions via JS animate() */
+/* Highlight pulse for root node */
+@keyframes hn-root-pulse{
+  0%,100%{filter:drop-shadow(0 0 5px rgba(244,63,94,.5))}
+  50%     {filter:drop-shadow(0 0 12px rgba(244,63,94,.9))}
+}
+.hn-circle.hnc-min{animation:hn-root-pulse 1.4s ease-in-out infinite}
+
+/* Swap flash */
+@keyframes hn-swap-flash{
+  0%,100%{filter:drop-shadow(0 0 4px rgba(253,224,71,.4))}
+  40%    {filter:drop-shadow(0 0 14px rgba(253,224,71,.9))}
+}
+.hn-circle.hnc-swap{animation:hn-swap-flash .45s ease-in-out}
 
 /* Empty state centred inside stage */
 .heap-empty{
@@ -972,225 +987,320 @@ function bufRefill(passId, groupId, bufIdx, newNums){
 }
 
 // ════════════════════════════════════════════════════════════
-//  HEAP — SVG Binary Tree Engine
+//  HEAP — Persistent SVG Engine (smooth, no flash)
 // ════════════════════════════════════════════════════════════
-// Layout constants
-const H_R        = 22;   // node radius
-const H_LH       = 62;   // level height — tuned so 4 levels fit in 280px stage
-const H_W_MIN    = 340;  // minimum SVG width
-const H_MAX_NODES= 15;   // show max 4 levels (2^4-1=15); k≤8 → heap≤8 nodes
-// Fixed viewBox dimensions — match .heap-stage height (280px)
-const H_VB_W     = 500;  // fixed viewBox width
-const H_VB_H     = 260;  // fixed viewBox height (slightly less than stage for padding)
+// Strategy: create SVG once, keep it alive.
+// On each update: smoothly animate cx/cy of existing nodes,
+// fade-in new nodes, fade-out removed nodes.
+// No innerHTML wipe → zero flash.
 
-// Compute (cx, cy) for node at index i in a heap
-// Uses full binary tree layout: assign column in leaf row
-function heapNodePos(i, n, svgW){
-  // depth of node i (0-indexed)
-  const depth = Math.floor(Math.log2(i + 1));
+const H_R        = 22;
+const H_LH       = 62;
+const H_VB_W     = 500;
+const H_VB_H     = 260;
+const H_MAX_NODES= 15;
+const H_ANIM_MS  = 280;   // transition duration in ms
+const SVG_NS     = 'http://www.w3.org/2000/svg';
+
+// Persistent references — created once per merge zone
+let _heapSVG     = null;  // the <svg> element
+let _heapEdgeG   = null;  // <g> for edges
+let _heapNodeG   = null;  // <g> for node groups
+let _heapWrapRef = null;  // currentHeapEl at time of creation
+
+// ── Position calculator ──────────────────────────────────────
+function heapNodePos(i, n){
+  // n = total nodes shown (capped at H_MAX_NODES)
+  const depth    = Math.floor(Math.log2(i + 1));
   const maxDepth = Math.floor(Math.log2(Math.min(n, H_MAX_NODES)));
-  // position within its level
-  const levelStart = (1 << depth) - 1;   // 2^depth - 1
-  const posInLevel = i - levelStart;
-  const levelCount = Math.min((1 << depth), n - levelStart);
-  // number of slots at max depth row
-  const slots = 1 << maxDepth;
-  // each node occupies slots/(levelCount) columns
+  const levelStart  = (1 << depth) - 1;
+  const posInLevel  = i - levelStart;
+  const slots  = 1 << maxDepth;
   const stride = slots / (1 << depth);
   const col    = posInLevel * stride + stride / 2;
-  const cx = (col / slots) * svgW;
-  const cy = H_R + depth * H_LH;
-  return {cx, cy, depth};
+  const cx = (col / slots) * H_VB_W;
+  const cy = H_R + 10 + depth * H_LH;
+  return {cx, cy};
 }
 
-// heapSVGHeight no longer used — SVG always fills fixed-height .heap-stage
-function heapSVGHeight(n){ return H_VB_H; }
+// ── Ensure SVG exists in currentHeapEl ──────────────────────
+function ensureHeapSVG(){
+  if(_heapSVG && _heapWrapRef === currentHeapEl) return;
 
-// Build a <g> element for a single node
-function makeNodeG(i, node, isMin, svgW, n, extraClass=''){
-  const {cx, cy} = heapNodePos(i, n, svgW);
-  const ns = 'http://www.w3.org/2000/svg';
-  const g  = document.createElementNS(ns, 'g');
-  g.setAttribute('class', 'hn-g');
-  g.dataset.idx = i;
+  // New merge zone → create fresh SVG
+  _heapWrapRef = currentHeapEl;
+  const wrap   = currentHeapEl;
+  wrap.innerHTML = '';
 
-  const circle = document.createElementNS(ns, 'circle');
-  circle.setAttribute('cx', cx);
-  circle.setAttribute('cy', cy);
-  circle.setAttribute('r', H_R);
-  circle.setAttribute('class', 'hn-circle' + (isMin ? ' hnc-min' : '') + (extraClass ? ' '+extraClass : ''));
-  g.appendChild(circle);
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox',  `0 0 ${H_VB_W} ${H_VB_H}`);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMin meet');
+  svg.setAttribute('width',  '100%');
+  svg.setAttribute('height', H_VB_H);
 
-  // value text (top line)
-  const valTxt = document.createElementNS(ns, 'text');
-  valTxt.setAttribute('x', cx);
-  valTxt.setAttribute('y', cy - 5);
-  valTxt.setAttribute('class', 'hn-val' + (isMin ? ' hnv-min' : ''));
-  valTxt.textContent = fmt(node.value);
-  g.appendChild(valTxt);
+  _heapEdgeG = document.createElementNS(SVG_NS, 'g');
+  _heapEdgeG.setAttribute('class', 'heap-edges');
+  _heapNodeG = document.createElementNS(SVG_NS, 'g');
+  _heapNodeG.setAttribute('class', 'heap-nodes');
 
-  // source label (bottom line)
-  const srcTxt = document.createElementNS(ns, 'text');
-  srcTxt.setAttribute('x', cx);
-  srcTxt.setAttribute('y', cy + 9);
+  svg.appendChild(_heapEdgeG);
+  svg.appendChild(_heapNodeG);
+  wrap.appendChild(svg);
+  _heapSVG = svg;
+}
+
+// ── Smooth-move a single attribute (cx, cy, x, y) ───────────
+function svgAnimAttr(el, attr, toVal, dur){
+  // Use Web Animations API on SVG attribute via CSS custom property trick
+  // Simplest reliable: just set the attribute; CSS `transition` on SVG
+  // geometry attrs not supported cross-browser. Use SMIL animate element.
+  const cur = parseFloat(el.getAttribute(attr)) || 0;
+  if(Math.abs(cur - toVal) < 0.5){ el.setAttribute(attr, toVal); return; }
+
+  // Remove old animators for this attr
+  [...el.querySelectorAll(`animate[attributeName="${attr}"]`)].forEach(a=>a.remove());
+
+  const anim = document.createElementNS(SVG_NS, 'animate');
+  anim.setAttribute('attributeName', attr);
+  anim.setAttribute('from', cur);
+  anim.setAttribute('to',   toVal);
+  anim.setAttribute('dur',  dur + 'ms');
+  anim.setAttribute('fill', 'freeze');
+  anim.setAttribute('calcMode', 'spline');
+  anim.setAttribute('keySplines', '0.4 0 0.2 1');
+  anim.setAttribute('keyTimes',   '0;1');
+  el.appendChild(anim);
+  anim.beginElement();
+
+  // Set final value after animation so attribute is correct
+  setTimeout(() => { el.setAttribute(attr, toVal); anim.remove(); }, dur + 10);
+}
+
+// ── Update or create a node <g> at heap index i ─────────────
+function updateNodeG(i, node, n, extraClass, dur){
+  const {cx, cy} = heapNodePos(i, n);
+  const isMin    = (i === 0);
+  const nodeId   = `hn-${i}`;
+
+  let g = _heapNodeG.querySelector(`[data-idx="${i}"]`);
+
+  if(!g){
+    // Create new node — starts invisible, fades in
+    g = document.createElementNS(SVG_NS, 'g');
+    g.setAttribute('class', 'hn-g');
+    g.dataset.idx = i;
+    g.style.opacity = '0';
+
+    const circle = document.createElementNS(SVG_NS, 'circle');
+    circle.setAttribute('r', H_R);
+    g.appendChild(circle);
+
+    const val = document.createElementNS(SVG_NS, 'text');
+    val.setAttribute('class', 'hn-val');
+    val.setAttribute('dominant-baseline', 'middle');
+    val.setAttribute('text-anchor', 'middle');
+    g.appendChild(val);
+
+    const src = document.createElementNS(SVG_NS, 'text');
+    src.setAttribute('class', 'hn-src');
+    src.setAttribute('dominant-baseline', 'middle');
+    src.setAttribute('text-anchor', 'middle');
+    g.appendChild(src);
+
+    _heapNodeG.appendChild(g);
+
+    // Set initial position instantly (no animate needed for new node)
+    circle.setAttribute('cx', cx); circle.setAttribute('cy', cy);
+    val.setAttribute('x', cx);     val.setAttribute('y', cy - 5);
+    src.setAttribute('x', cx);     src.setAttribute('y', cy + 9);
+
+    // Fade in
+    requestAnimationFrame(() => { g.style.opacity = '1'; g.style.transition = `opacity ${dur}ms`; });
+  } else {
+    // Existing node → animate position smoothly
+    const circle = g.querySelector('circle');
+    const val    = g.querySelectorAll('text')[0];
+    const srcTxt = g.querySelectorAll('text')[1];
+
+    svgAnimAttr(circle, 'cx', cx, dur);
+    svgAnimAttr(circle, 'cy', cy, dur);
+    svgAnimAttr(val,    'x',  cx, dur);
+    svgAnimAttr(val,    'y',  cy - 5, dur);
+    svgAnimAttr(srcTxt, 'x',  cx, dur);
+    svgAnimAttr(srcTxt, 'y',  cy + 9, dur);
+  }
+
+  // Update class & text
+  const circle = g.querySelector('circle');
+  const val    = g.querySelectorAll('text')[0];
+  const srcTxt = g.querySelectorAll('text')[1];
+
+  let circleClass = 'hn-circle';
+  let valClass    = 'hn-val';
+  if(isMin)                       { circleClass += ' hnc-min'; valClass += ' hnv-min'; }
+  if(extraClass === 'hnc-swap')   { circleClass += ' hnc-swap'; }
+  if(extraClass === 'hnc-compare'){ circleClass += ' hnc-compare'; }
+  if(extraClass === 'hnc-new')    { circleClass += ' hnc-new'; }
+
+  circle.setAttribute('class', circleClass);
+  val.setAttribute('class', valClass);
   srcTxt.setAttribute('class', 'hn-src' + (isMin ? ' hns-min' : ''));
+  val.textContent    = fmt(node.value);
   srcTxt.textContent = `s${node.src}`;
-  g.appendChild(srcTxt);
-
-  return g;
 }
 
-// Build edge line from parent i to child j
-function makeEdge(i, j, n, svgW, extraClass=''){
-  const ns = 'http://www.w3.org/2000/svg';
-  const {cx:x1, cy:y1} = heapNodePos(i, n, svgW);
-  const {cx:x2, cy:y2} = heapNodePos(j, n, svgW);
-  const line = document.createElementNS(ns, 'line');
-  line.setAttribute('x1', x1); line.setAttribute('y1', y1 + H_R);
-  line.setAttribute('x2', x2); line.setAttribute('y2', y2 - H_R);
-  line.setAttribute('class', 'hn-edge' + (extraClass ? ' '+extraClass : ''));
-  return line;
+// ── Rebuild edges ────────────────────────────────────────────
+function updateEdges(n, swapPair){
+  _heapEdgeG.innerHTML = '';  // edges are cheap to recreate
+  for(let i = 0; i < n; i++){
+    const left  = 2*i + 1;
+    const right = 2*i + 2;
+    for(const child of [left, right]){
+      if(child >= n) continue;
+      const {cx:x1, cy:y1} = heapNodePos(i, n);
+      const {cx:x2, cy:y2} = heapNodePos(child, n);
+      const line = document.createElementNS(SVG_NS, 'line');
+      line.setAttribute('x1', x1); line.setAttribute('y1', y1 + H_R);
+      line.setAttribute('x2', x2); line.setAttribute('y2', y2 - H_R);
+      const isSwap = swapPair && (
+        (i===swapPair[0]&&child===swapPair[1]) ||
+        (i===swapPair[1]&&child===swapPair[0])
+      );
+      line.setAttribute('class', 'hn-edge' + (isSwap ? ' hne-swap' : ''));
+      _heapEdgeG.appendChild(line);
+    }
+  }
 }
 
-// Full redraw of the heap SVG
+// ── Remove node groups that no longer exist ──────────────────
+function pruneNodes(activeCount){
+  const all = [..._heapNodeG.querySelectorAll('[data-idx]')];
+  all.forEach(g => {
+    const idx = parseInt(g.dataset.idx);
+    if(idx >= activeCount){
+      // Fade out then remove
+      g.style.transition = 'opacity .18s';
+      g.style.opacity = '0';
+      setTimeout(() => g.remove(), 200);
+    }
+  });
+}
+
+// ── Main render function — NO innerHTML wipe ─────────────────
 function rebuildHeapDOM(highlightIdx = -1, swapPair = null){
   if(!currentHeapEl) return;
-  const heap = VS.heap;
 
-  // update count badge
   const cntEl = currentHeapEl.closest('.heap-wrap')?.querySelector('.heap-count');
+  const heap  = VS.heap;
   if(cntEl) cntEl.textContent = heap.length + ' phần tử';
 
-  const wrap = currentHeapEl;   // ← fix: was missing after refactor
-
   if(!heap.length){
-    wrap.innerHTML = '<div class="heap-empty">heap trống</div>';
+    // Keep SVG but hide it; show empty text instead
+    if(_heapSVG && _heapWrapRef === currentHeapEl){
+      _heapSVG.style.display = 'none';
+      // Show empty label if not present
+      if(!currentHeapEl.querySelector('.heap-empty')){
+        const em = document.createElement('div');
+        em.className = 'heap-empty';
+        em.textContent = 'heap trống';
+        currentHeapEl.appendChild(em);
+      }
+    } else {
+      currentHeapEl.innerHTML = '<div class="heap-empty">heap trống</div>';
+    }
     return;
   }
 
-  const ns    = 'http://www.w3.org/2000/svg';
-  const shown = Math.min(heap.length, H_MAX_NODES);
-  const svgW  = H_VB_W;
-  const svgH  = H_VB_H;
+  // Remove empty label if present
+  currentHeapEl.querySelector('.heap-empty')?.remove();
 
-  const svg = document.createElementNS(ns, 'svg');
-  svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
-  svg.setAttribute('preserveAspectRatio', 'xMidYMin meet');
-  // Set explicit width so SVG is never 0×0 regardless of when CSS loads
-  // Width = 100% of container; height derived from viewBox aspect ratio
-  svg.setAttribute('width', '100%');
-  svg.setAttribute('height', svgH);
+  ensureHeapSVG();
+  if(_heapSVG) _heapSVG.style.display = '';
 
-  // === Layer 1: edges (drawn first, behind nodes) ===
-  const edgeG = document.createElementNS(ns, 'g');
-  for(let i = 0; i < shown; i++){
-    const left  = 2*i + 1;
-    const right = 2*i + 2;
-    if(left  < shown){
-      const isSwapEdge = swapPair && ((i===swapPair[0]&&left===swapPair[1])||(i===swapPair[1]&&left===swapPair[0]));
-      edgeG.appendChild(makeEdge(i, left,  shown, H_VB_W, isSwapEdge ? 'hne-swap' : ''));
-    }
-    if(right < shown){
-      const isSwapEdge = swapPair && ((i===swapPair[0]&&right===swapPair[1])||(i===swapPair[1]&&right===swapPair[0]));
-      edgeG.appendChild(makeEdge(i, right, shown, H_VB_W, isSwapEdge ? 'hne-swap' : ''));
-    }
-  }
-  svg.appendChild(edgeG);
+  const n   = Math.min(heap.length, H_MAX_NODES);
+  const dur = speed <= 1 ? H_ANIM_MS : Math.max(60, H_ANIM_MS / speed);
 
-  // === Layer 2: nodes ===
-  const nodeG = document.createElementNS(ns, 'g');
-  const minVal = heap[0].value; // heap[0] is always root = min in a min-heap
-  for(let i = 0; i < shown; i++){
-    const isMin     = (i === 0);
+  // Update edges first (instant, cheap)
+  updateEdges(n, swapPair);
+
+  // Update/create nodes
+  for(let i = 0; i < n; i++){
     const isSwap    = swapPair && (i === swapPair[0] || i === swapPair[1]);
     const isCompare = (i === highlightIdx);
-    let extraClass  = '';
-    if(isSwap)    extraClass = 'hnc-swap';
-    else if(isCompare) extraClass = 'hnc-compare';
-    nodeG.appendChild(makeNodeG(i, heap[i], isMin, H_VB_W, shown, extraClass));
+    const extra     = isSwap ? 'hnc-swap' : isCompare ? 'hnc-compare' : '';
+    updateNodeG(i, heap[i], n, extra, dur);
   }
-  svg.appendChild(nodeG);
 
-  // overflow indicator
+  // Fade out nodes beyond current count
+  pruneNodes(n);
+
+  // Overflow text
+  let ovf = _heapSVG.querySelector('.heap-overflow');
   if(heap.length > H_MAX_NODES){
-    const txt = document.createElementNS(ns, 'text');
-    txt.setAttribute('x', H_VB_W / 2);
-    txt.setAttribute('y', H_VB_H - 4);
-    txt.setAttribute('text-anchor', 'middle');
-    txt.setAttribute('font-family', "'Space Mono',monospace");
-    txt.setAttribute('font-size', '9');
-    txt.setAttribute('fill', 'rgba(90,112,144,.6)');
-    txt.textContent = `+${heap.length - H_MAX_NODES} node không hiển thị`;
-    svg.appendChild(txt);
+    if(!ovf){
+      ovf = document.createElementNS(SVG_NS, 'text');
+      ovf.setAttribute('class', 'heap-overflow');
+      ovf.setAttribute('text-anchor', 'middle');
+      ovf.setAttribute('font-family', "'Space Mono',monospace");
+      ovf.setAttribute('font-size', '9');
+      ovf.setAttribute('fill', 'rgba(90,112,144,.6)');
+      ovf.setAttribute('x', H_VB_W / 2);
+      ovf.setAttribute('y', H_VB_H - 4);
+      _heapSVG.appendChild(ovf);
+    }
+    ovf.textContent = `+${heap.length - H_MAX_NODES} node không hiển thị`;
+  } else {
+    ovf?.remove();
   }
-
-  wrap.innerHTML = '';
-  wrap.appendChild(svg);
 }
 
-// ── Sift-down visual: safe, synchronous highlight via CSS class ──
-// Does NOT mutate VS.heap — only adds visual classes then redraws.
-// Called once per heapPop; highlights swap path via a queued timeout chain
-// that guards against VS.heap being modified by the next event.
-let _siftToken = 0;  // increment to cancel stale animations
+// ── heapSVGHeight kept as stub ───────────────────────────────
+function heapSVGHeight(n){ return H_VB_H; }
 
-function scheduleSiftDown(heapSnapshot, startIdx, delayMs){
+// ── Sift-down: timeout chain on snapshot ─────────────────────
+let _siftToken = 0;
+
+function scheduleSiftDown(snapshot, startIdx, delayMs){
   const token = ++_siftToken;
   let i = startIdx;
-  const h = [...heapSnapshot];  // local copy, never mutate VS.heap
+  const h = [...snapshot];
 
   function step(){
-    if(token !== _siftToken) return;  // cancelled by next event
-    const left  = 2*i + 1;
-    const right = 2*i + 2;
+    if(token !== _siftToken) return;
+    const left  = 2*i + 1, right = 2*i + 2;
     let smallest = i;
     if(left  < h.length && h[left].value  < h[smallest].value) smallest = left;
     if(right < h.length && h[right].value < h[smallest].value) smallest = right;
     if(smallest === i){ rebuildHeapDOM(); return; }
 
-    // Show compare highlight
     rebuildHeapDOM(smallest, null);
-
-    setTimeout(()=>{
+    setTimeout(() => {
       if(token !== _siftToken) return;
-      // Swap in local copy for visual
       [h[i], h[smallest]] = [h[smallest], h[i]];
       rebuildHeapDOM(-1, [i, smallest]);
-
-      setTimeout(()=>{
-        if(token !== _siftToken) return;
-        i = smallest;
-        step();
-      }, delayMs * 0.6);
-    }, delayMs * 0.5);
+      setTimeout(() => { if(token !== _siftToken) return; i = smallest; step(); }, delayMs * 0.55);
+    }, delayMs * 0.45);
   }
-  setTimeout(step, 40);
+  setTimeout(step, 30);
 }
 
-// ── heapPush: add node, brief new-node highlight ──────────────
+// ── heapPush ─────────────────────────────────────────────────
 function heapPush(value, src){
-  ++_siftToken;  // cancel any in-flight sift animation
+  ++_siftToken;
   VS.heap.push({value, src});
-  rebuildHeapDOM(VS.heap.length - 1, null);   // highlight new node
-  setTimeout(() => rebuildHeapDOM(), 220);
+  rebuildHeapDOM(VS.heap.length - 1, null);  // highlight new node
+  setTimeout(() => rebuildHeapDOM(), 300);
 }
 
-// ── heapPop: remove node, trigger sift-down visuals ──────────
+// ── heapPop ──────────────────────────────────────────────────
 function heapPop(value, src){
-  ++_siftToken;  // cancel any previous sift animation immediately
-
+  ++_siftToken;
   const i = VS.heap.findIndex(n => n.value == value && n.src == String(src));
   if(i !== -1) VS.heap.splice(i, 1);
   else if(VS.heap.length) VS.heap.shift();
 
-  if(!VS.heap.length || speed > 2){
-    // Fast mode or empty: instant redraw, no animation
-    rebuildHeapDOM();
-    return;
-  }
-
-  // Slow/medium mode: show sift-down on a snapshot so VS.heap is safe
-  const delayMs = Math.max(60, 280 / speed);
+  if(!VS.heap.length || speed > 2){ rebuildHeapDOM(); return; }
+  const delayMs = Math.max(60, H_ANIM_MS / speed);
   scheduleSiftDown([...VS.heap], 0, delayMs);
 }
 
