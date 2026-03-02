@@ -1284,20 +1284,54 @@ function scheduleSiftDown(snapshot, startIdx, delayMs){
   setTimeout(step, 30);
 }
 
+// ── Min-heap property helpers ────────────────────────────────
+// Keep VS.heap as a valid min-heap array so VS.heap[0] is always min.
+// Backend sends push/pop events in heap order, but we maintain it
+// ourselves so the visual tree is always correct.
+
+function hSiftUp(h, i){
+  while(i > 0){
+    const parent = Math.floor((i - 1) / 2);
+    if(h[parent].value <= h[i].value) break;
+    [h[parent], h[i]] = [h[i], h[parent]];
+    i = parent;
+  }
+}
+
+function hSiftDown(h, i){
+  const n = h.length;
+  while(true){
+    let smallest = i;
+    const l = 2*i+1, r = 2*i+2;
+    if(l < n && h[l].value < h[smallest].value) smallest = l;
+    if(r < n && h[r].value < h[smallest].value) smallest = r;
+    if(smallest === i) break;
+    [h[i], h[smallest]] = [h[smallest], h[i]];
+    i = smallest;
+  }
+}
+
 // ── heapPush ─────────────────────────────────────────────────
 function heapPush(value, src){
   ++_siftToken;
   VS.heap.push({value, src});
-  rebuildHeapDOM(VS.heap.length - 1, null);  // highlight new node
+  hSiftUp(VS.heap, VS.heap.length - 1);   // maintain heap property
+  rebuildHeapDOM(VS.heap.length - 1, null);
   setTimeout(() => rebuildHeapDOM(), 300);
 }
 
 // ── heapPop ──────────────────────────────────────────────────
 function heapPop(value, src){
   ++_siftToken;
-  const i = VS.heap.findIndex(n => n.value == value && n.src == String(src));
-  if(i !== -1) VS.heap.splice(i, 1);
-  else if(VS.heap.length) VS.heap.shift();
+
+  // Standard min-heap pop: swap root with last, then sift-down
+  // (ignore the value/src hint from backend — always pop the real min)
+  if(!VS.heap.length){ rebuildHeapDOM(); return; }
+
+  // Move last element to root position and sift down
+  VS.heap[0] = VS.heap[VS.heap.length - 1];
+  VS.heap.pop();
+  if(VS.heap.length) hSiftDown(VS.heap, 0);
 
   if(!VS.heap.length || speed > 2){ rebuildHeapDOM(); return; }
   const delayMs = Math.max(60, H_ANIM_MS / speed);
@@ -1490,12 +1524,14 @@ function processEvent(ev){
           renderBufCard(ev.pass_id, ev.group_id, i);
         });
       }
-      // init heap
+      // init heap — heapify after loading to guarantee min-heap property
       VS.heap = [];
       if(ev.initial_heap){
         ev.initial_heap.forEach(h=>{
           VS.heap.push({value: Array.isArray(h)?h[0]:h.value, src: String(Array.isArray(h)?h[1]:h.src)});
         });
+        // Heapify: sift-down from last non-leaf upward
+        for(let i = Math.floor(VS.heap.length/2)-1; i >= 0; i--) hSiftDown(VS.heap, i);
       }
       rebuildHeapDOM();
       log(`🧠 Merge bắt đầu: pass ${ev.pass_id} nhóm ${ev.group_id}`, 'ram');
