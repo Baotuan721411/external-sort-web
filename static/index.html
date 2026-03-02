@@ -176,12 +176,53 @@ header{display:flex;align-items:center;justify-content:space-between;gap:12px;fl
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
 /* ── Heap SVG Binary Tree ── */
-.heap-wrap{background:rgba(0,0,0,.3);border:1px solid rgba(91,33,182,.25);border-radius:12px;padding:14px}
-.heap-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.heap-wrap{
+  background:rgba(0,0,0,.3);
+  border:1px solid rgba(91,33,182,.25);
+  border-radius:12px;padding:14px;
+  /* Stage area — fixed height so nothing below shifts */
+  box-shadow:inset 0 0 40px rgba(91,33,182,.04);
+}
+.heap-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
 .heap-hdr-title{font-family:var(--font-mono);font-size:10px;color:#9070cc;text-transform:uppercase;letter-spacing:.1em}
 .heap-count{font-size:9px;color:var(--muted);font-family:var(--font-mono)}
-.heap-svg-container{width:100%;overflow:visible}
-.heap-svg-container svg{display:block;overflow:visible}
+
+/* Fixed-height stage — tree draws inside this, never resizes it */
+.heap-stage{
+  width:100%;
+  height:280px;           /* fits 4 levels: R=22, LH=62 → 22+3×62+22 ≈ 230, +50 padding */
+  position:relative;
+  overflow:hidden;        /* clip anything that overflows, never push siblings */
+  border-radius:8px;
+  background:rgba(0,0,0,.18);
+  border:1px solid rgba(91,33,182,.12);
+  /* subtle scanline grid */
+  background-image:
+    linear-gradient(rgba(91,33,182,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(91,33,182,.04) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* SVG fills the stage completely, viewBox is fixed */
+.heap-stage svg{
+  position:absolute;
+  top:0;left:0;
+  width:100%;height:100%;
+  overflow:visible;
+  display:block;
+}
+
+/* Fade-in for new nodes */
+@keyframes hn-fadein{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}
+.hn-g{animation:hn-fadein .22s ease-out both}
+
+/* Empty state centred inside stage */
+.heap-empty{
+  position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-size:11px;color:rgba(90,112,144,.45);
+  pointer-events:none;
+}
 /* SVG node circle */
 .hn-circle{fill:#1a0f2e;stroke:rgba(139,92,246,.55);stroke-width:1.6;
   transition:fill .3s,stroke .3s,stroke-width .3s,filter .3s}
@@ -473,7 +514,7 @@ const fiSim   = document.getElementById('fiSim');
 // ════════════════════════════════════════════════════════════
 //  STATE MANAGEMENT
 // ════════════════════════════════════════════════════════════
-let steps = [], idx = 0, paused = true, speed = 0.5, totalSteps = 0, jobId = null;
+let steps = [], idx = 0, paused = true, speed = 0.25, totalSteps = 0, jobId = null;
 let currentPassId = null, currentGroupId = null;
 let animating = false;  // block rapid clicks during fly animation
 
@@ -821,7 +862,7 @@ function ensureMergeZone(passId, groupId, inputs){
         <span class="heap-hdr-title">MIN-HEAP</span>
         <span class="heap-count" id="${id}-hcnt">0 phần tử</span>
       </div>
-      <div class="heap-svg-container" id="${id}-heap"></div>
+      <div class="heap-stage" id="${id}-heap"></div>
       <div class="heap-legend">
         <span><span class="hl-dot" style="background:#f43f5e;box-shadow:0 0 4px rgba(244,63,94,.5)"></span>Root (nhỏ nhất)</span>
         <span><span class="hl-dot" style="background:rgba(139,92,246,.5)"></span>Node bình thường</span>
@@ -934,10 +975,13 @@ function bufRefill(passId, groupId, bufIdx, newNums){
 //  HEAP — SVG Binary Tree Engine
 // ════════════════════════════════════════════════════════════
 // Layout constants
-const H_R     = 22;    // node radius
-const H_LH    = 68;    // level height (vertical gap centre-to-centre)
-const H_W_MIN = 340;   // minimum SVG width
-const H_MAX_NODES = 31; // show max 5 levels (2^5-1 = 31)
+const H_R        = 22;   // node radius
+const H_LH       = 62;   // level height — tuned so 4 levels fit in 280px stage
+const H_W_MIN    = 340;  // minimum SVG width
+const H_MAX_NODES= 15;   // show max 4 levels (2^4-1=15); k≤8 → heap≤8 nodes
+// Fixed viewBox dimensions — match .heap-stage height (280px)
+const H_VB_W     = 500;  // fixed viewBox width
+const H_VB_H     = 260;  // fixed viewBox height (slightly less than stage for padding)
 
 // Compute (cx, cy) for node at index i in a heap
 // Uses full binary tree layout: assign column in leaf row
@@ -959,11 +1003,8 @@ function heapNodePos(i, n, svgW){
   return {cx, cy, depth};
 }
 
-function heapSVGHeight(n){
-  if(!n) return 60;
-  const maxDepth = Math.floor(Math.log2(Math.min(n, H_MAX_NODES)));
-  return H_R * 2 + maxDepth * H_LH + H_R + 10;
-}
+// heapSVGHeight no longer used — SVG always fills fixed-height .heap-stage
+function heapSVGHeight(n){ return H_VB_H; }
 
 // Build a <g> element for a single node
 function makeNodeG(i, node, isMin, svgW, n, extraClass=''){
@@ -1021,20 +1062,22 @@ function rebuildHeapDOM(highlightIdx = -1, swapPair = null){
   if(cntEl) cntEl.textContent = heap.length + ' phần tử';
 
   if(!heap.length){
-    currentHeapEl.innerHTML = '<div style="opacity:.3;font-size:10px;font-family:var(--font-mono);color:#5a7090;padding:18px 0;text-align:center">heap trống</div>';
+    // Keep stage visible, just show centred empty label
+    currentHeapEl.innerHTML = '<div class="heap-empty">heap trống</div>';
     return;
   }
 
   const ns    = 'http://www.w3.org/2000/svg';
   const shown = Math.min(heap.length, H_MAX_NODES);
-  const wrap  = currentHeapEl;
-  const svgW  = Math.max(H_W_MIN, wrap.clientWidth || H_W_MIN);
-  const svgH  = heapSVGHeight(shown);
+
+  // SVG always uses fixed viewBox so the container never resizes
+  const svgW = H_VB_W;
+  const svgH = H_VB_H;
 
   const svg = document.createElementNS(ns, 'svg');
   svg.setAttribute('viewBox', `0 0 ${svgW} ${svgH}`);
-  svg.setAttribute('width', svgW);
-  svg.setAttribute('height', svgH);
+  svg.setAttribute('preserveAspectRatio', 'xMidYMin meet');
+  // width/height are 100%/100% via CSS — do NOT set inline
 
   // === Layer 1: edges (drawn first, behind nodes) ===
   const edgeG = document.createElementNS(ns, 'g');
@@ -1043,11 +1086,11 @@ function rebuildHeapDOM(highlightIdx = -1, swapPair = null){
     const right = 2*i + 2;
     if(left  < shown){
       const isSwapEdge = swapPair && ((i===swapPair[0]&&left===swapPair[1])||(i===swapPair[1]&&left===swapPair[0]));
-      edgeG.appendChild(makeEdge(i, left,  shown, svgW, isSwapEdge ? 'hne-swap' : ''));
+      edgeG.appendChild(makeEdge(i, left,  shown, H_VB_W, isSwapEdge ? 'hne-swap' : ''));
     }
     if(right < shown){
       const isSwapEdge = swapPair && ((i===swapPair[0]&&right===swapPair[1])||(i===swapPair[1]&&right===swapPair[0]));
-      edgeG.appendChild(makeEdge(i, right, shown, svgW, isSwapEdge ? 'hne-swap' : ''));
+      edgeG.appendChild(makeEdge(i, right, shown, H_VB_W, isSwapEdge ? 'hne-swap' : ''));
     }
   }
   svg.appendChild(edgeG);
@@ -1062,15 +1105,15 @@ function rebuildHeapDOM(highlightIdx = -1, swapPair = null){
     let extraClass  = '';
     if(isSwap)    extraClass = 'hnc-swap';
     else if(isCompare) extraClass = 'hnc-compare';
-    nodeG.appendChild(makeNodeG(i, heap[i], isMin, svgW, shown, extraClass));
+    nodeG.appendChild(makeNodeG(i, heap[i], isMin, H_VB_W, shown, extraClass));
   }
   svg.appendChild(nodeG);
 
   // overflow indicator
   if(heap.length > H_MAX_NODES){
     const txt = document.createElementNS(ns, 'text');
-    txt.setAttribute('x', svgW / 2);
-    txt.setAttribute('y', svgH - 4);
+    txt.setAttribute('x', H_VB_W / 2);
+    txt.setAttribute('y', H_VB_H - 4);
     txt.setAttribute('text-anchor', 'middle');
     txt.setAttribute('font-family', "'Space Mono',monospace");
     txt.setAttribute('font-size', '9');
