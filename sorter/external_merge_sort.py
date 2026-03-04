@@ -7,10 +7,6 @@ import shutil
 from .auto_config import auto_tune_params
 
 
-# ══════════════════════════════════════════════════════════════
-#  SORT THẬT — giữ nguyên 100% logic gốc của bạn, không thay đổi
-# ══════════════════════════════════════════════════════════════
-
 class ExternalMergeSorter:
 
     def __init__(self, input_file, block_size=100, k=5):
