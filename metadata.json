@@ -1,0 +1,5 @@
+{
+  "name": "External Merge Sort Visualizer",
+  "description": "An interactive visualization of the External Merge Sort algorithm, demonstrating block-based sorting and k-way merging with a min-heap.",
+  "requestFramePermissions": []
+}
